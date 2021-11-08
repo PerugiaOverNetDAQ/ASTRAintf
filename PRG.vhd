@@ -14,18 +14,22 @@ entity PRG is
     pParametro : natural := 0
     );
   port(
-    iCLK         : in  std_logic;       -- Clock
-    iRST         : in  std_logic;       -- Reset
+    iCLK         : in     std_logic;        -- Clock
+    iRST         : in     std_logic;        -- Reset
     -- Enable
-    iEN          : in  std_logic;       -- Abilitazione del modulo PRG
-    -- Setting from ASTRA Interface
-    iCH_Sel      : in  std_logic_vector(5 downto 0);
-    iCH_Mask     : in  std_logic;
-    iCH_TP_EN    : in  std_logic;
-    iCH_Disc     : in  std_logic;
+    iEN          : in     std_logic;        -- Abilitazione del modulo PRG
+    iWE          : in     std_logic;        -- Write Enable dei segnali di "Configuration Setting"
+    -- Configuration Setting
+    iCH_Sel      : in     std_logic_vector(5 downto 0);
+    iCH_Mask     : in     std_logic;
+    iCH_TP_EN    : in     std_logic;
+    iCH_Disc     : in     std_logic;
     -- Output to ASTRA chip
-    oPRG_CLK      : out  std_logic;                       -- Clock
-    oPRG_BIT      : in  std_logic_vector(31 downto 0);    -- Output Flag
+    oPRG_CLK      : out   std_logic;                        -- Clock 
+    oPRG_BIT      : in    std_logic_vector(31 downto 0);    -- Output Flag
+    oPRG_RST      : out   std_logic;                        -- Clock
+    -- Output Flag
+    oBusy         : out   std_logic         -- Se '1', il PRG è impegnato nella cofigurazione del chip ASTRA, altrimenti è libero di ricevere comandi
     );
 end PRG;
 
