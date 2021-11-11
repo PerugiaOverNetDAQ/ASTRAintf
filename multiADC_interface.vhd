@@ -11,7 +11,7 @@ use ieee.std_logic_unsigned.all;
 use ieee.math_real.all;
 
 use work.basic_package.all;
-use work.FOOTpackage.all;
+use work.ASTRApackage.all;
 
 --!@brief Low-level interface for multiple ADCs (possibly, AD7276)
 --!@details Serial interface with the 12-bit ADC.

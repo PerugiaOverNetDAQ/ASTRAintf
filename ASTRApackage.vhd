@@ -10,7 +10,7 @@ use ieee.std_logic_unsigned.all;
 use work.basic_package.all;
 
 --!@copydo ASTRApackage
-package FOOTpackage is
+package ASTRApackage is
   constant cADC_DATA_WIDTH       : natural := 16;  --!ADC data-width
   constant cADC_FIFO_DEPTH       : natural := 256;  --!ADC FIFO number of words
   constant cTOTAL_ADC_WORDS_NUM  : natural := 2048;  --! numero totale massimo di parole da 16 bit nella fifo finale 1280??
@@ -148,4 +148,4 @@ package FOOTpackage is
       );
   end component multiADC_interface;
 
-end FOOTpackage;
+end ASTRApackage;
