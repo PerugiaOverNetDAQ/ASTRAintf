@@ -1,6 +1,7 @@
 --!@file PRG.vhd
 --!@brief Modulo per la configurazione dei canali del chip ASTRA
 --!@author Matteo D'Antonio, matteo.dantonio@studenti.unipg.it
+--!@date 08/11/2021
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
@@ -44,14 +45,14 @@ entity PRG is
     iG2_EXT_BIAS         : in     std_logic;      --    "   PARTIZIONE 2  "
     iG2_GAIN             : in     std_logic;      --    "   PARTIZIONE 2  "
     iG2_POL              : in     std_logic;      --    "   PARTIZIONE 2  "
-    -- Output to ASTRA chip Local Configuration
-    oPRG1_CLK      : out   std_logic;                        -- Slow Clock (1 - 5 MHz) in ingresso allo shift register delle configurzioni locali (PARTIZIONE 1 --> CANALI [1, 32])
-    oPRG1_BIT      : out    std_logic_vector(31 downto 0);   -- Bit stream in ingresso allo shift register delle configurzioni locali (PARTIZIONE 1 --> CANALI [1, 32])
-    oPRG1_RST      : out   std_logic;                        -- Reset in ingresso allo shift register delle configurzioni locali (PARTIZIONE 1 --> CANALI [1, 32])
-    oPRG2_CLK      : out   std_logic;                        --    "   PARTIZIONE 2  "
-    oPRG2_BIT      : out    std_logic_vector(31 downto 0);   --    "   PARTIZIONE 2  "
-    oPRG2_RST      : out   std_logic;                        --    "   PARTIZIONE 2  "
-    -- Output to ASTRA chip Global Configuration
+    -- Output to ASTRA (Local Configuration)
+    oPRG1_CLK      : out   std_logic;                       -- Slow Clock (1 - 5 MHz) in ingresso allo shift register delle configurzioni locali (PARTIZIONE 1 --> CANALI [1, 32])
+    oPRG1_BIT      : out   std_logic_vector(31 downto 0);   -- Bit stream in ingresso allo shift register delle configurzioni locali (PARTIZIONE 1 --> CANALI [1, 32])
+    oPRG1_RST      : out   std_logic;                       -- Reset in ingresso allo shift register delle configurzioni locali (PARTIZIONE 1 --> CANALI [1, 32])
+    oPRG2_CLK      : out   std_logic;                       --    "   PARTIZIONE 2  "
+    oPRG2_BIT      : out   std_logic_vector(31 downto 0);   --    "   PARTIZIONE 2  "
+    oPRG2_RST      : out   std_logic;                       --    "   PARTIZIONE 2  "
+    -- Output to ASTRA (Global Configuration)
     oG1_SER_TX_dis       : out     std_logic;      -- Bit per disabilitare la trasmissione dati da parte del serializzatore della partizione 1
     oG1_debug_en         : out     std_logic;      -- Bit per abilitare le PAD di debug dei segnali d'uscita dagli shaper dei canali [21, 28] della partizione 1
     oG1_PT1              : out     std_logic;      -- LSB della configurazione di peaking time dello shaper della partizione 1
@@ -99,8 +100,8 @@ begin
         
         oPRG1_CLK      <= '0';
         oPRG2_CLK      <= '0';
-        oPRG1_RST      <= '0';
-        oPRG2_RST      <= '0';
+        oPRG1_RST      <= '1';
+        oPRG2_RST      <= '1';
         oBusy          <= '0';
         sPS            <= LISTENING;
 
