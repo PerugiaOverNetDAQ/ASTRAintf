@@ -73,12 +73,22 @@ package basic_package is
        oPAR_DATA   : out std_logic_vector(pWIDTH-1 downto 0));
   end component;
   -- clock_divider -------------------------------------------------------------
-  component clock_divider is
-    generic(pPOLARITY : std_logic);
-    port(iCLK, iRST, iEN : in  std_logic;
-       oCLK_OUT, oCLK_OUT_RISING, oCLK_OUT_FALLING : out std_logic;
-       iFREQ_DIV   : in  std_logic_vector(15 downto 0);
-	   iDUTY_CYCLE : in  std_logic_vector(15 downto 0));
+  component clock_divider_md is
+	 generic(
+		pPOLARITY	: std_logic := '0'
+		);
+	 port(
+		--!Input
+		iCLK 				: in std_logic;
+		iRST 				: in std_logic;
+		iEN 				: in std_logic;
+		iPERIOD			: in std_logic_vector(31 downto 0);
+		iDUTY_CYCLE		: in std_logic_vector(31 downto 0);
+		--!Output
+		oCLK_OUT 			: out std_logic;
+		oCLK_OUT_RISING 	: out std_logic;
+		oCLK_OUT_FALLING 	: out std_logic
+		);
   end component;
   -- parametric_fifo_synch -----------------------------------------------------
   component parametric_fifo_synch is

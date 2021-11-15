@@ -10,11 +10,11 @@ use ieee.std_logic_unsigned.all;
 use work.basic_package.all;
 
 --!@copydo ASTRApackage
-package FOOTpackage is
+package ASTRApackage is
   constant cADC_DATA_WIDTH       : natural := 16;  --!ADC data-width
   constant cADC_FIFO_DEPTH       : natural := 256;  --!ADC FIFO number of words
   constant cTOTAL_ADC_WORDS_NUM  : natural := 2048;  --! numero totale massimo di parole da 16 bit nella fifo finale 1280??
-  constant cFE_DAISY_CHAIN_DEPTH : natural := 2;   --!FEs in a daisy chain
+  constant cFE_DAISY_CHAIN_DEPTH : natural := 1;   --!FEs in a daisy chain
   constant cFE_CHANNELS          : natural := 64;  --!Channels per FE
   constant cFE_CLOCK_CYCLES      : natural := cFE_DAISY_CHAIN_DEPTH*cFE_CHANNELS;  --!Number of clock cycles to feed a chain
   constant cFE_SHIFT_2_CLK       : natural := 2; --!Wait between FE shift and clock assertion
@@ -148,26 +148,5 @@ package FOOTpackage is
       );
   end component multiADC_interface;
   
-  --!@brief Divisore di frequenza con rilevamento dei fronti di salita e di discesa
-  component clock_divider_md is
-    generic(
-	   pPeriod				: natural;		-- Periodo di conteggio del contatore (che di fatto andrà a definire la frequenza del segnale PWM) espresso in "numero di cicli di clock"
-		pDutyCycle			: natural;		-- Numero di cicli di clock per i quali l'uscita dovrà tenersi "alta"
-		pPolarity			: std_logic;	-- Logica di funzionamento del dispositivo. Se pPolarity=0-->logica positiva, se pPolarity=1-->logica negata
-		pRiseFall2Count	: std_logic		-- Definiamo con "RiseFall2Count" il parametro che seleziona quali fronti d'onda conteggiare. Se RiseFall2Count=0--> rising edge, se RiseFall2Count=1--> falling edge
-		);
-	 port(
-		--!Input
-		iCLK 				: in std_logic;	-- Clock principale
-		iRST 				: in std_logic;	-- Reset principale
-		iEN 				: in std_logic;	-- Abilita il contatore per la generazione del segnale di clock d'uscita
-		iEdgeCount_RST : in std_logic;	-- Ingresso per il reset del contatore dei fronti d'onda
-		--!Output
-		oCLK_OUT 			: out std_logic;							-- Uscita del dispositivo	
-		oCLK_OUT_RISING 	: out std_logic;							-- Uscita di segnalazione dei fronti di salita
-		oCLK_OUT_FALLING 	: out std_logic;							-- Uscita di segnalazione dei fronti di discesa
-		oEDGE_COUNTER 		: out std_logic_vector(11 downto 0)	-- Uscita contenente il numero di fronti di salita/discesa rilevati dal detector
-		);
-  end component;
 
-end FOOTpackage;
+end ASTRApackage;
