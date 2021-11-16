@@ -46,7 +46,7 @@ architecture Behavioral of clock_divider_2 is
   signal clk_out_rising       : std_logic                     := '0';
   signal clk_out_falling      : std_logic                     := '0';
   signal freq_divider_reduced : std_logic_vector(pWIDTH-1 downto 0) := (others => '0');
-  signal enable_slv           : std_logic_vector(pWIDTH-1 downto 0) := (others => '0')
+  signal enable_slv           : std_logic_vector(pWIDTH-1 downto 0) := (others => '0');
 
 begin
   --!@brief Counter that increments at each cycle
@@ -90,11 +90,11 @@ begin
 
   freq_divider_reduced <= iFREQ_DIV - '1';
 
-  clk_out <= pPOLARITY when unsigned(clk_count) < iDUTY_CYCLE else not pPolarity;
+  clk_out <= pPOLARITY when unsigned(clk_count) < unsigned(iDUTY_CYCLE) else not pPolarity;
 
   clk_out_rising <= '1' when (iEN = '1' and (clk_count = freq_divider_reduced)) else
                     '0';
-  clk_out_falling <= '1' when (iEN = '1' and (unsigned(clk_count) = iDUTY_CYCLE-1)) else
+  clk_out_falling <= '1' when (iEN = '1' and (unsigned(clk_count) = unsigned(iDUTY_CYCLE)-1)) else
                      '0';
 
 end architecture;

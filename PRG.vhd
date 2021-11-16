@@ -32,7 +32,8 @@ use work.ASTRApackage.all;
 --!@copydoc PRG.vhd
 entity PRG is
   generic(
-		pDualBlock            : natural := 2          --!Numero di partizioni ASTRA utilizzate (min=1, max=2)
+		pNumBlock             : natural := 2;         --!Numero di partizioni ASTRA utilizzate (min=1, max=2)
+    pChannelPerBlock      : natural := 32        --!Numero di canali analogici d'ingresso per singola partizione
 		);
   port(
     iCLK         				  : in  std_logic;        --!Clock principale
@@ -41,9 +42,9 @@ entity PRG is
     iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG
     iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" e Global" in ingresso
     -- ASTRA Local Setting
-    iCH_Mask     				  : in  std_logic_vector(cFE_CHANNELS-1 downto 0);
-    iCH_TP_EN    				  : in  std_logic_vector(cFE_CHANNELS-1 downto 0);
-    iCH_Disc     				  : in  std_logic_vector(cFE_CHANNELS-1 downto 0);
+    iCH_Mask     				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
+    iCH_TP_EN    				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
+    iCH_Disc     				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
     oLOCAL_SETTING   		  : out tAstraLocalSetting;
     -- ASTRA Global Setting
     iGLOBAL_SETTING  		  : in  tAstraGlobalSetting;
@@ -67,15 +68,16 @@ architecture Behavior of PRG is
   type tChannelSel is (DISCRIMINATOR, TEST_PULSE, MASK);
   signal sCS : tChannelSel;
 
---!Set di segnali utili per
-  signal sClockDividerReset   : std_logic;                    --!Reset in ingresso al clock_divider 
-  signal sClkOutRising   	    : std_logic;                    --!Fronti di salita del clock_divider
-  signal sClkOutFalling   	  : std_logic;                    --!Fronti di discesa del clock_divider
-  signal sChCounter					  : natural range 0 to 127;       --!Numero del canale locale selezionato
-  
---!Numero di canali analogici d'ingresso per singola partizione
-  constant cChannelPerBlock   : natural := 32;
-  
+--!Reset in ingresso al clock_divider 
+  signal sClockDividerReset   : std_logic;
+--!Fronti di salita del clock_divider
+  signal sClkOutRising   	    : std_logic;
+--!Fronti di discesa del clock_divider
+  signal sClkOutFalling   	  : std_logic;
+--!Numero del canale locale selezionato
+  signal sChCounter					  : natural range 0 to 127;
+
+
 begin
   --!Slow clock con frequenza [1-5 MHz]
 	SlowClockGen : clock_divider
@@ -121,7 +123,7 @@ begin
               sPS                 <= CONFIG;
             else
               sClockDividerReset  <= '0';
-              sChCounter          <= pDualBlock*cChannelPerBlock;
+              sChCounter          <= pChannelPerBlock - 1;
               sCS           	 	  <= DISCRIMINATOR;
               oGLOBAL_SETTING		  <= iGLOBAL_SETTING;
               sPS                 <= LISTENING;
@@ -130,20 +132,20 @@ begin
           --!Configura il chip ASTRA
           when CONFIG =>
             oFLAG.busy	<= '1';
-            if (sChCounter > 0) then
+            if (sChCounter + 1 > 0) then
               if (sClkOutRising = '1') then
                 case (sCS) is
                   when DISCRIMINATOR =>
                     oLOCAL_SETTING.Bit_A  <= iCH_Disc(sChCounter);
-                    oLOCAL_SETTING.Bit_B  <= iCH_Disc(sChCounter);
+                    oLOCAL_SETTING.Bit_B  <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
                     sCS           	 	    <= TEST_PULSE;
                   when TEST_PULSE =>
                     oLOCAL_SETTING.Bit_A  <= iCH_TP_EN(sChCounter);
-                    oLOCAL_SETTING.Bit_B  <= iCH_TP_EN(sChCounter);
+                    oLOCAL_SETTING.Bit_B  <= iCH_TP_EN(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
                     sCS           	 	    <= MASK;
                   when MASK =>
                     oLOCAL_SETTING.Bit_A  <= iCH_Mask(sChCounter);
-                    oLOCAL_SETTING.Bit_B  <= iCH_Mask(sChCounter);
+                    oLOCAL_SETTING.Bit_B  <= iCH_Mask(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
                     sChCounter            <= sChCounter - 1;                                        
                     sCS           	 	    <= DISCRIMINATOR;
                   when others =>
