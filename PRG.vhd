@@ -4,19 +4,19 @@
 --!
 --!Configurazione locale "iCH" e globale "iG" dei canali ASTRA
 --!
---! | Abbr  | Default | Description |
---! |-------|-------------|---------|
---! | iCH_Mask | x"00000000" | Disabilitazione alla ricezione della carica sul canale n-esimo, '0'= channel ON, '1'= channel OFF |
---! | iCH_TP_EN | x"00000000" | Abilitazione del circuito di test per l'iniezione artificiale della carica sul canale n-esimo, '0'= disabled, '1'= enabled |
---! | iCH_Disc | x"FFFFFFFF" | Abilitazione del circuito discriminatore per la generazione del trigger, '0'= disabled, '1'= enabled |
---! | iG_SER_TX_dis  | "00" | Bit per disabilitare la trasmissione dati da parte del serializzatore, '0'= serializzatore ON |
---! | iG_debug_en | "00" | Bit per abilitare le PAD di debug dei segnali d'uscita dagli shaper dei canali [21, 28], '0'= debug OFF |
---! | iG_PT1 | "11" | LSB della configurazione di peaking time dello shaper, '1'= 6.5 us |
---! | iG_PT2 | "00" | MSB della configurazione di peaking time dello shaper, '0'= 6.5 us |
---! | iG_FastOR_TX_dis | "00" | Bit per disabilitare il circuito di FAST-OR dedito alla generazione del segnale di trigger, '0'= fast-or ON |
---! | iG_EXT_BIAS | "00" | Bit per forzare il chip ASTRA ad utilizzare i BIAS esterni, '0'=external bias NO FORCED |
---! | iG_GAIN | "00" | Bit per impostare il guadagno del pre-amplificatore, '0'= [1.6, 160 fC] range dinamico d'ingresso |
---! | iG_POL | "00" | Bit per impostare la polarità +/- dei canali, '0'= n-strips p-substrate, '1'= p-strips n-substrate,  |
+--! | Abbr  | Default | Description | eg |
+--! |-------|-------------|---------|----|
+--! | iCH_Mask | x"00000000" | Disabilitazione alla ricezione della carica sul canale n-esimo | '0'= channel ON, '1'= channel OFF |
+--! | iCH_TP_EN | x"00000000" | Abilitazione del circuito di test per l'iniezione artificiale della carica sul canale n-esimo | '0'= disabled, '1'= enabled |
+--! | iCH_Disc | x"FFFFFFFF" | Abilitazione del circuito discriminatore per la generazione del trigger | '0'= disabled, '1'= enabled |
+--! | iG_SER_TX_dis  | '0' | Bit per disabilitare la trasmissione dati da parte del serializzatore | '0'= serializzatore ON |
+--! | iG_debug_en | '0' | Bit per abilitare le PAD di debug dei segnali d'uscita dagli shaper dei canali [21, 28] | '0'= debug OFF |
+--! | iG_PT1 | '1' | LSB della configurazione di peaking time dello shaper | '1'= 6.5 us |
+--! | iG_PT2 | '0' | MSB della configurazione di peaking time dello shaper | '0'= 6.5 us |
+--! | iG_FastOR_TX_dis | '0' | Bit per disabilitare il circuito di FAST-OR dedito alla generazione del segnale di trigger | '0'= fast-or ON |
+--! | iG_EXT_BIAS | '0' | Bit per forzare il chip ASTRA ad utilizzare i BIAS esterni | '0'=external bias NO FORCED |
+--! | iG_GAIN | '0' | Bit per impostare il guadagno del pre-amplificatore | '0'= [1.6, 160 fC] range dinamico d'ingresso |
+--! | iG_POL | '0' | Bit per impostare la polarità +/- dei canali | '0'= n-strips p-substrate, '1'= p-strips n-substrate,  |
 --!
 --!@author Matteo D'Antonio, matteo.dantonio@studenti.unipg.it
 --!@date 08/11/2021
@@ -26,114 +26,148 @@ use IEEE.STD_LOGIC_1164.all;
 use IEEE.STD_LOGIC_UNSIGNED.all;
 use IEEE.NUMERIC_STD.all;
 
+use work.basic_package.all;
+use work.ASTRApackage.all;
 
 --!@copydoc PRG.vhd
 entity PRG is
   generic(
-    pNumChannel : natural := 64         -- Numero di canali analogici del chip ASTRA: 64(default) o 32.
-    );
+		pDualBlock            : natural := 2          --!Numero di partizioni ASTRA utilizzate (min=1, max=2)
+		);
   port(
-    iCLK         : in     std_logic;        --! Clock principale
-    iRST         : in     std_logic;        --! Reset principale
+    iCLK         				  : in  std_logic;        --!Clock principale
+    iRST         				  : in  std_logic;        --!Reset principale
     -- Enable
-    iEN          : in     std_logic;        -- Abilitazione del modulo PRG
-    iWE_Local    : in     std_logic;        -- Write Enable dei segnali di "Local Setting"
-    iWE_Global   : in     std_logic;        -- Write Enable dei segnali di "Global Setting"
-    -- Local Setting
-    iCH_Mask     : in     std_logic_vector(pNumChannel-1 downto 0);
-    iCH_TP_EN    : in     std_logic_vector(pNumChannel-1 downto 0);
-    iCH_Disc     : in     std_logic_vector(pNumChannel-1 downto 0);
-    -- Global Setting, bit 0 --> PARTIZIONE 1 --> CANALI [0, 31], bit 1 --> PARTIZIONE 2 --> CANALI [32, 63]
-    iG_SER_TX_dis       : in     std_logic_vector(pDualBlock downto 0);
-    iG_debug_en         : in     std_logic_vector(pDualBlock downto 0);
-    iG_PT1              : in     std_logic_vector(pDualBlock downto 0);
-    iG_PT2              : in     std_logic_vector(pDualBlock downto 0);
-    iG_FastOR_TX_dis    : in     std_logic_vector(pDualBlock downto 0);
-    iG_EXT_BIAS         : in     std_logic_vector(pDualBlock downto 0);
-    iG_GAIN             : in     std_logic_vector(pDualBlock downto 0);
-    iG_POL              : in     std_logic_vector(pDualBlock downto 0);
-    -- Output to ASTRA (Local Configuration), bit 0 --> PARTIZIONE 1 --> CANALI [0, 31], bit 1 --> PARTIZIONE 2 --> CANALI [32, 63]
-    oPRG_CLK      : out   std_logic;   		-- Slow Clock (1 - 5 MHz) in ingresso allo shift register delle configurzioni locali
-    oPRG_BIT_A    : out   std_logic_vector(pDualBlock downto 0);   		-- Bit stream in ingresso allo shift register delle configurzioni locali
-    oPRG_BIT_B    : out   std_logic_vector(pDualBlock downto 0);   		-- Bit stream in ingresso allo shift register delle configurzioni locali
-	 oPRG_RST      : out   std_logic;   		-- Reset in ingresso allo shift register delle configurzioni locali
-    -- Output to ASTRA (Global Configuration), bit 0 --> PARTIZIONE 1 --> CANALI [0, 31], bit 1 --> PARTIZIONE 2 --> CANALI [32, 63]
-    oG_SER_TX_dis       : out     std_logic_vector(pDualBlock downto 0);
-    oG_debug_en         : out     std_logic_vector(pDualBlock downto 0);
-    oG_PT1              : out     std_logic_vector(pDualBlock downto 0);
-    oG_PT2              : out     std_logic_vector(pDualBlock downto 0);
-    oG_FastOR_TX_dis    : out     std_logic_vector(pDualBlock downto 0);
-    oG_EXT_BIAS         : out     std_logic_vector(pDualBlock downto 0);
-    oG_GAIN             : out     std_logic_vector(pDualBlock downto 0);
-    oG_POL              : out     std_logic_vector(pDualBlock downto 0);
+    iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG
+    iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" e Global" in ingresso
+    -- ASTRA Local Setting
+    iCH_Mask     				  : in  std_logic_vector(cFE_CHANNELS-1 downto 0);
+    iCH_TP_EN    				  : in  std_logic_vector(cFE_CHANNELS-1 downto 0);
+    iCH_Disc     				  : in  std_logic_vector(cFE_CHANNELS-1 downto 0);
+    oLOCAL_SETTING   		  : out tAstraLocalSetting;
+    -- ASTRA Global Setting
+    iGLOBAL_SETTING  		  : in  tAstraGlobalSetting;
+    oGLOBAL_SETTING			  : out tAstraGlobalSetting;
+    -- PRG Clock Divider
+    iPERIOD_CONFIG_CLOCK	: in  std_logic_vector(31 downto 0);		--!Periodo dello SlowClock in numero di cicli del main clock
+    iDC_CONFIG_CLOCK			: in  std_logic_vector(31 downto 0);		--!Duty Cycle dello SlowClock in numero di cicli del main clock
     -- Output Flag
-    oBusy			: out   std_logic    -- Se oBusy='1', il PRG è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
+    oFLAG				          : out tControlIntfOut    --! Se busy='1', il PRG è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
     );
 end PRG;
 
 
 --!@copydoc PRG.vhd
 architecture Behavior of PRG is
--- Dichiarazione degli stati della FSM
-  type tStatus is (RESET, LISTENING, CONFIG);  -- Il PRG è una macchina a stati costituita da 3 stati.
+--!Il PRG è una FSM costituita da soli 3 stati
+  type tStatus is (RESET, LISTENING, CONFIG);
   signal sPS : tStatus;
-
--- Set di segnali utili per
-  signal sSegnaleQuelloChe    : std_logic;  -- 
-  signal sSegnale   			   : std_logic;  -- 
   
+--!Dichiarazione del tipo per selezionare i canali locali
+  type tChannelSel is (DISCRIMINATOR, TEST_PULSE, MASK);
+  signal sCS : tChannelSel;
 
+--!Set di segnali utili per
+  signal sClockDividerReset   : std_logic;                    --!Reset in ingresso al clock_divider 
+  signal sClkOutRising   	    : std_logic;                    --!Fronti di salita del clock_divider
+  signal sClkOutFalling   	  : std_logic;                    --!Fronti di discesa del clock_divider
+  signal sChCounter					  : natural range 0 to 127;       --!Numero del canale locale selezionato
+  
+--!Numero di canali analogici d'ingresso per singola partizione
+  constant cChannelPerBlock   : natural := 32;
+  
 begin
-  -- Assegnazione segnali interni del PRG alle porte di I/O
-  o        <= sSegnale;
-  o        <= sSegnale;
+  --!Slow clock con frequenza [1-5 MHz]
+	SlowClockGen : clock_divider
+	generic map(
+		pPolarity 			=> '0'
+		)
+	port map(
+		iCLK 					    => iCLK,
+		iRST 					    => sClockDividerReset,
+		iEN 					    => iEN,
+		iPERIOD			 	    => iPERIOD_CONFIG_CLOCK,
+		iDUTY_CYCLE			  => iDC_CONFIG_CLOCK,
+		oCLK_OUT 			    => oLOCAL_SETTING.clk,
+		oCLK_OUT_RISING 	=> sClkOutRising,
+		oCLK_OUT_FALLING 	=> sClkOutFalling
+		);
   
-  -- Implementazione della macchina a stati
+  --!Implementazione della macchina a stati
   StateFSM_proc : process (iCLK)
   begin 
     if (rising_edge(iCLK)) then
       if (iRST = '1') then
-        -- Stato di RESET. Si entra in questo stato solo se qualcuno (dall'esterno) alza il segnale di reset
+        --!Stato di RESET
         -- Local Config Reset
-        oPRG1_CLK      <= '0';
-        oPRG2_CLK      <= '0';
-        oPRG1_RST      <= '1';
-        oPRG2_RST      <= '1';
-		  -- Global Config Reset
-		  
-		  -- Other Reset
-        oBusy          <= '0';
-        sPS            <= LISTENING;
-
+        oLOCAL_SETTING.rst	<= '1';								                        -- Local Config Reset = '1'
+        -- Global Config Reset
+        oGLOBAL_SETTING		  <= ('0', '0', '1', '0', '0', '0', '0', '0');	-- PT1='1' (GAIN --> "01")
+        -- Other
+        oFLAG					      <= ('0', '0', '1', '0');								      -- reset FLAG = '1'
+        sClockDividerReset  <= '1';
+        sPS           	 	  <= LISTENING;
+        
       elsif (iEN = '1') then
-        -- Valori di default che verranno sovrascritti, se necessario
-        sSegnale     <= '1';
-        sSegnale  <= '0';
-        sSegnale  <= '0';
+        --!Valori di default che verranno sovrascritti, se necessario
+        oLOCAL_SETTING.rst	<= '0';
+        oFLAG.reset	        <= '0';
+        oFLAG.busy	        <= '0';
         case (sPS) is
-                                -- Stato di LISTENING
+        
+          --!Ascolta le richieste di configurazione Locale o Globale
           when LISTENING =>
-            sSegnale     <= '0';  -- 
-            sSegnale <= '1';
-            if () then
-              sPS <= CONFIG;
+            if (iWE = '1') then
+              sPS                 <= CONFIG;
             else
-              sPS <= LISTENING;
+              sClockDividerReset  <= '0';
+              sChCounter          <= pDualBlock*cChannelPerBlock;
+              sCS           	 	  <= DISCRIMINATOR;
+              oGLOBAL_SETTING		  <= iGLOBAL_SETTING;
+              sPS                 <= LISTENING;
             end if;
-
-                                        -- Stato di CONFIG
+            
+          --!Configura il chip ASTRA
           when CONFIG =>
-            if () then
-              sSegnale <= cStart_of_packet;
-              sSegnale   <= '1';
-              sPS        <= LISTENING;
+            oFLAG.busy	<= '1';
+            if (sChCounter > 0) then
+              if (sClkOutRising = '1') then
+                case (sCS) is
+                  when DISCRIMINATOR =>
+                    oLOCAL_SETTING.Bit_A  <= iCH_Disc(sChCounter);
+                    oLOCAL_SETTING.Bit_B  <= iCH_Disc(sChCounter);
+                    sCS           	 	    <= TEST_PULSE;
+                  when TEST_PULSE =>
+                    oLOCAL_SETTING.Bit_A  <= iCH_TP_EN(sChCounter);
+                    oLOCAL_SETTING.Bit_B  <= iCH_TP_EN(sChCounter);
+                    sCS           	 	    <= MASK;
+                  when MASK =>
+                    oLOCAL_SETTING.Bit_A  <= iCH_Mask(sChCounter);
+                    oLOCAL_SETTING.Bit_B  <= iCH_Mask(sChCounter);
+                    sChCounter            <= sChCounter - 1;                                        
+                    sCS           	 	    <= DISCRIMINATOR;
+                  when others =>
+                    oFLAG.error	          <= '1';
+                    sClockDividerReset    <= '1';
+                    sChCounter            <= 0;
+                    sCS           	 	    <= MASK;
+                end case;
+              end if;
             else
-              sPS <= CONFIG;
+              sPS   <= LISTENING;
             end if;
-  
-  
-  
-  
+            
+          when others =>
+            oFLAG.error	        <= '1';
+            sClockDividerReset  <= '1';
+            sChCounter          <= 0;
+            sPS                 <= LISTENING;
+				end case;  
+      end if;
+    end if;
+  end process;
+
+
 end Behavior;
 
 

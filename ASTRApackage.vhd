@@ -117,6 +117,26 @@ package ASTRApackage is
   type tMultiAdc2FpgaIntf is array (0 to cTOTAL_ADCS-1) of tAdc2FpgaIntf;
   type tMultiAdcFifoIn is array (0 to cTOTAL_ADCS-1) of tFifoIn_ADC;
   type tMultiAdcFifoOut is array (0 to cTOTAL_ADCS-1) of tFifoOut_ADC;
+  
+  --!ASTRA Global setting
+  type tAstraGlobalSetting is record
+    ser_tx_dis      : std_logic;	--!disable the serializer TX
+    debug_en        : std_logic;	--!enable the 8 debug output pad
+    pt1             : std_logic;	--!set the LSB of peaking time register
+    pt2             : std_logic;	--!set the MSB of peaking time register
+    fastor_tx_dis   : std_logic;	--!disable the fast-or TX
+    ext_bias        : std_logic;	--!force the usage of external bias
+    gain            : std_logic;	--!set the gain of the preaplifier
+    pol             : std_logic;	--!set the polarity of the preamplifier
+  end record tAstraGlobalSetting;
+  
+  --!ASTRA Local setting, output
+  type tAstraLocalSetting is record
+    clk      : std_logic;		--!Slow clock (1-5 MHz) for channels configuration
+    Bit_A    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK A, channel 0-31)
+    Bit_B    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK B, channel 32-63)
+    rst      : std_logic;		--!Reset of channels configuration
+  end record tAstraLocalSetting;
 
   --!Initialization constants for the upper types
   constant c_FROM_FIFO_INIT : tFifoOut_ADC := (full   => '0',
