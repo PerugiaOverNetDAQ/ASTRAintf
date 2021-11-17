@@ -21,7 +21,7 @@ The gateware is organized in packages to group parameters, types declarations, a
 ![PRG Interface transaction](./doc/img/PRG_transaction.png)
 
 ## Analog Readout
-![Analog Readout transaction](./doc/img/Digital_transaction.png)
+![Analog Readout transaction](./doc/img/Analog_transaction.png)
 
 ## Digital Readout
-![Digital Readout transaction](./doc/img/Analog_transaction.png)
+![Digital Readout transaction](./doc/img/Digital_transaction.png)
