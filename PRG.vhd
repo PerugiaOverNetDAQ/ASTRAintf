@@ -32,8 +32,8 @@ use work.ASTRApackage.all;
 --!@copydoc PRG.vhd
 entity PRG is
   generic(
-		pNumBlock             : natural := 2;         --!Numero di partizioni ASTRA utilizzate (min=1, max=2)
-    pChannelPerBlock      : natural := 32        --!Numero di canali analogici d'ingresso per singola partizione
+		pNumBlock             : natural := 2;         --!Blocchi ASTRA (min=1, max=2)
+    pChannelPerBlock      : natural := 32         --!Canali per singolo blocco
 		);
   port(
     iCLK         				  : in  std_logic;        --!Clock principale
@@ -41,6 +41,11 @@ entity PRG is
     -- Enable
     iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG
     iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" e Global" in ingresso
+    -- PRG Clock Divider
+    iPERIOD_CLK	          : in  std_logic_vector(31 downto 0);		--!Periodo dello SlowClock in numero di cicli del main clock
+    iDUTY_CYCLE_CLK			  : in  std_logic_vector(31 downto 0);		--!Duty Cycle dello SlowClock in numero di cicli del main clock
+    -- Output Flag
+    oFLAG				          : out tControlIntfOut;    --! Se busy='1', il PRG è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
     -- ASTRA Local Setting
     iCH_Mask     				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
     iCH_TP_EN    				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
@@ -48,12 +53,7 @@ entity PRG is
     oLOCAL_SETTING   		  : out tAstraLocalSetting;
     -- ASTRA Global Setting
     iGLOBAL_SETTING  		  : in  tAstraGlobalSetting;
-    oGLOBAL_SETTING			  : out tAstraGlobalSetting;
-    -- PRG Clock Divider
-    iPERIOD_CONFIG_CLOCK	: in  std_logic_vector(31 downto 0);		--!Periodo dello SlowClock in numero di cicli del main clock
-    iDC_CONFIG_CLOCK			: in  std_logic_vector(31 downto 0);		--!Duty Cycle dello SlowClock in numero di cicli del main clock
-    -- Output Flag
-    oFLAG				          : out tControlIntfOut    --! Se busy='1', il PRG è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
+    oGLOBAL_SETTING			  : out tAstraGlobalSetting
     );
 end PRG;
 
@@ -61,24 +61,27 @@ end PRG;
 --!@copydoc PRG.vhd
 architecture Behavior of PRG is
 --!Il PRG è una FSM costituita da soli 3 stati
-  type tStatus is (RESET, LISTENING, CONFIG);
-  signal sPS : tStatus;
-  
---!Dichiarazione del tipo per selezionare i canali locali
-  type tChannelSel is (DISCRIMINATOR, TEST_PULSE, MASK);
-  signal sCS : tChannelSel;
+  type tPrgStatus is (RESET, IDLE, SYNCH, CONFIG_DISC, CONFIG_TP, CONFIG_MASK, CONFIG_END);
+  signal sPS : tPrgStatus;
 
---!Reset in ingresso al clock_divider 
-  signal sClockDividerReset   : std_logic;
+--!Contatore del tempo necessario allo stato di reset
+  signal sResetCounter        : std_logic_vector(7 downto 0);
+--!Slow Clock prodotto dal clock_divider
+  signal sClkOut   	          : std_logic;
+--!Switch per silenziare l'uscita del clock divider
+  signal sClkOutEn   	        : std_logic; 
 --!Fronti di salita del clock_divider
   signal sClkOutRising   	    : std_logic;
 --!Fronti di discesa del clock_divider
   signal sClkOutFalling   	  : std_logic;
---!Numero del canale locale selezionato
-  signal sChCounter					  : natural range 0 to 127;
+--!Selettore degli ingressi di configurazione locale
+  signal sChCounter					  : integer range -2 to 127;
 
 
 begin
+  --!I pin di Global Setting di ASTRA sono connessi direttamente all'ingresso del PRG_Driver
+  oGLOBAL_SETTING	<= iGLOBAL_SETTING;
+  
   --!Slow clock con frequenza [1-5 MHz]
 	SlowClockGen : clock_divider
 	generic map(
@@ -86,84 +89,126 @@ begin
 		)
 	port map(
 		iCLK 					    => iCLK,
-		iRST 					    => sClockDividerReset,
-		iEN 					    => iEN,
-		iPERIOD			 	    => iPERIOD_CONFIG_CLOCK,
-		iDUTY_CYCLE			  => iDC_CONFIG_CLOCK,
-		oCLK_OUT 			    => oLOCAL_SETTING.clk,
+		iRST 					    => iRST,
+		iEN 					    => '1',
+		iPERIOD			 	    => iPERIOD_CLK,
+		iDUTY_CYCLE			  => iDUTY_CYCLE_CLK,
+		oCLK_OUT 			    => sClkOut,
 		oCLK_OUT_RISING 	=> sClkOutRising,
 		oCLK_OUT_FALLING 	=> sClkOutFalling
 		);
+  --!sCLK_OUT on/off
+  oLOCAL_SETTING.clk <= sClkOut and sClkOutEn;
   
   --!Implementazione della macchina a stati
   StateFSM_proc : process (iCLK)
   begin 
     if (rising_edge(iCLK)) then
       if (iRST = '1') then
-        --!Stato di RESET
-        -- Local Config Reset
-        oLOCAL_SETTING.rst	<= '1';								                        -- Local Config Reset = '1'
-        -- Global Config Reset
-        oGLOBAL_SETTING		  <= ('0', '0', '1', '0', '0', '0', '0', '0');	-- PT1='1' (GAIN --> "01")
-        -- Other
-        oFLAG					      <= ('0', '0', '1', '0');								      -- reset FLAG = '1'
-        sClockDividerReset  <= '1';
-        sPS           	 	  <= LISTENING;
-        
+        --!Local Config Reset
+        oLOCAL_SETTING.rst	  <= '1';								                     -- Local Config Reset = '1'
+        oLOCAL_SETTING.bitA   <= '0';                                    -- Bit stream "A" = '0'
+        oLOCAL_SETTING.bitB   <= '0';                                    -- Bit stream "B" = '0'
+        --!Other
+        oFLAG					        <= ('0', '0', '1', '0');								   -- reset FLAG = '1'
+        sClkOutEn             <= '0';
+        sResetCounter         <= (others => '0');
+        sPS <= RESET;
       elsif (iEN = '1') then
         --!Valori di default che verranno sovrascritti, se necessario
+        sClkOutEn           <= '0';
         oLOCAL_SETTING.rst	<= '0';
         oFLAG.reset	        <= '0';
         oFLAG.busy	        <= '0';
         case (sPS) is
         
+          --!Attendi per almeno 1 ciclo di Slow Clock con il PRG_RESET alto
+          when RESET =>
+            if (sResetCounter < iPERIOD_CLK - 1) then 
+              --!Local Config Reset
+              oLOCAL_SETTING.rst	 <= '1';								                      -- Local Config Reset = '1'
+              oLOCAL_SETTING.bitA  <= '0';                                     -- Bit stream "A" = '0'
+              oLOCAL_SETTING.bitB  <= '0';                                     -- Bit stream "B" = '0'
+              --!Other
+              oFLAG					      <= ('0', '0', '1', '0');								      -- reset FLAG = '1'
+              sResetCounter       <= sResetCounter + 1;
+              sPS           	 	  <= RESET;
+            else
+              sResetCounter       <= (others => '0');
+              sPS                 <= IDLE;
+            end if;
+          
           --!Ascolta le richieste di configurazione Locale o Globale
-          when LISTENING =>
+          when IDLE =>
             if (iWE = '1') then
-              sPS                 <= CONFIG;
-            else
-              sClockDividerReset  <= '0';
               sChCounter          <= pChannelPerBlock - 1;
-              sCS           	 	  <= DISCRIMINATOR;
-              oGLOBAL_SETTING		  <= iGLOBAL_SETTING;
-              sPS                 <= LISTENING;
-            end if;
-            
-          --!Configura il chip ASTRA
-          when CONFIG =>
-            oFLAG.busy	<= '1';
-            if (sChCounter + 1 > 0) then
-              if (sClkOutRising = '1') then
-                case (sCS) is
-                  when DISCRIMINATOR =>
-                    oLOCAL_SETTING.Bit_A  <= iCH_Disc(sChCounter);
-                    oLOCAL_SETTING.Bit_B  <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
-                    sCS           	 	    <= TEST_PULSE;
-                  when TEST_PULSE =>
-                    oLOCAL_SETTING.Bit_A  <= iCH_TP_EN(sChCounter);
-                    oLOCAL_SETTING.Bit_B  <= iCH_TP_EN(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
-                    sCS           	 	    <= MASK;
-                  when MASK =>
-                    oLOCAL_SETTING.Bit_A  <= iCH_Mask(sChCounter);
-                    oLOCAL_SETTING.Bit_B  <= iCH_Mask(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
-                    sChCounter            <= sChCounter - 1;                                        
-                    sCS           	 	    <= DISCRIMINATOR;
-                  when others =>
-                    oFLAG.error	          <= '1';
-                    sClockDividerReset    <= '1';
-                    sChCounter            <= 0;
-                    sCS           	 	    <= MASK;
-                end case;
-              end if;
+              sPS                 <= SYNCH;
             else
-              sPS   <= LISTENING;
+              sPS                 <= IDLE;
+            end if;
+          
+          --!Sincronizza la bit stream dati rispetto al fronte di discesa dello Slow Clock
+          when SYNCH =>
+            if (sClkOutFalling = '1') then
+              sClkOutEn             <= '1';
+              oLOCAL_SETTING.bitA   <= iCH_Disc(sChCounter);
+              oLOCAL_SETTING.bitB   <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              sPS                   <= CONFIG_TP;
+            else
+              sPS                   <= SYNCH;
+            end if;
+          
+          --!Configura il Discriminatore
+          when CONFIG_DISC =>
+            sClkOutEn   <= '1';
+            oFLAG.busy	<= '1';            
+            if (sClkOutFalling = '1') then
+              oLOCAL_SETTING.bitA  <= iCH_Disc(sChCounter);
+              oLOCAL_SETTING.bitB  <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              sPS           	 	   <= CONFIG_TP;
             end if;
             
+          --!Configura il Test Pulse
+          when CONFIG_TP =>
+            sClkOutEn   <= '1';
+            oFLAG.busy	<= '1';            
+            if (sClkOutFalling = '1') then
+              oLOCAL_SETTING.bitA  <= iCH_TP_EN(sChCounter);
+              oLOCAL_SETTING.bitB  <= iCH_TP_EN(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              sPS           	 	   <= CONFIG_MASK;
+          end if; 
+            
+          --!Configura la maschera
+          when CONFIG_MASK =>
+            sClkOutEn   <= '1';
+            oFLAG.busy	<= '1';            
+            if (sClkOutFalling = '1') then
+              oLOCAL_SETTING.bitA  <= iCH_Mask(sChCounter);
+              oLOCAL_SETTING.bitB  <= iCH_Mask(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              sPS           	 	   <= CONFIG_MASK;
+              sChCounter           <= sChCounter - 1;
+              if (sChCounter > 0) then
+                sPS   <= CONFIG_DISC;
+              else
+                sPS   <= CONFIG_END;
+              end if;
+            end if;
+          
+          --! Acquisizione dell'ultimo bit dello stream dati
+          when CONFIG_END =>
+            if (sClkOutFalling = '1') then
+              sPS         <= IDLE;
+            else
+              sClkOutEn   <= '1';
+              oFLAG.busy	<= '1';
+            end if;
+          
+          --!Nessuno degli stati precedenti: errore  
           when others =>
             oFLAG.error	        <= '1';
-            sClockDividerReset  <= '1';
+            sClkOutEn           <= '0';
             sChCounter          <= 0;
-            sPS                 <= LISTENING;
+            sPS                 <= IDLE;
 				end case;  
       end if;
     end if;

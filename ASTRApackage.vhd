@@ -133,8 +133,8 @@ package ASTRApackage is
   --!ASTRA Local setting, output
   type tAstraLocalSetting is record
     clk      : std_logic;		--!Slow clock (1-5 MHz) for channels configuration
-    Bit_A    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK A, channel 0-31)
-    Bit_B    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK B, channel 32-63)
+    bitA    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK A, channel 0-31)
+    bitB    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK B, channel 32-63)
     rst      : std_logic;		--!Reset of channels configuration
   end record tAstraLocalSetting;
 
