@@ -1,4 +1,4 @@
---!@file PRG.vhd
+--!@file PRG_driver.vhd
 --!@brief Modulo per la configurazione dei canali del chip ASTRA
 --!@details
 --!
@@ -29,8 +29,8 @@ use IEEE.NUMERIC_STD.all;
 use work.basic_package.all;
 use work.ASTRApackage.all;
 
---!@copydoc PRG.vhd
-entity PRG is
+--!@copydoc PRG_driver.vhd
+entity PRG_driver is
   generic(
 		pNumBlock             : natural := 2;         --!Blocchi ASTRA (min=1, max=2)
     pChannelPerBlock      : natural := 32         --!Canali per singolo blocco
@@ -39,13 +39,13 @@ entity PRG is
     iCLK         				  : in  std_logic;        --!Clock principale
     iRST         				  : in  std_logic;        --!Reset principale
     -- Enable
-    iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG
+    iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG_driver
     iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" e Global" in ingresso
-    -- PRG Clock Divider
+    -- PRG_driver Clock Divider
     iPERIOD_CLK	          : in  std_logic_vector(31 downto 0);		--!Periodo dello SlowClock in numero di cicli del main clock
     iDUTY_CYCLE_CLK			  : in  std_logic_vector(31 downto 0);		--!Duty Cycle dello SlowClock in numero di cicli del main clock
     -- Output Flag
-    oFLAG				          : out tControlIntfOut;    --! Se busy='1', il PRG è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
+    oFLAG				          : out tControlIntfOut;    --! Se busy='1', il PRG_driver è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
     -- ASTRA Local Setting
     iCH_Mask     				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
     iCH_TP_EN    				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
@@ -55,12 +55,12 @@ entity PRG is
     iGLOBAL_SETTING  		  : in  tAstraGlobalSetting;
     oGLOBAL_SETTING			  : out tAstraGlobalSetting
     );
-end PRG;
+end PRG_driver;
 
 
---!@copydoc PRG.vhd
-architecture Behavior of PRG is
---!Il PRG è una FSM costituita da soli 3 stati
+--!@copydoc PRG_driver.vhd
+architecture Behavior of PRG_driver is
+--!Il PRG_driver è una FSM costituita da soli 7 stati
   type tPrgStatus is (RESET, IDLE, SYNCH, CONFIG_DISC, CONFIG_TP, CONFIG_MASK, CONFIG_END);
   signal sPS : tPrgStatus;
 
