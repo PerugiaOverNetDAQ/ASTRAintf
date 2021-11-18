@@ -153,8 +153,10 @@ begin
               sClkOutEn             <= '1';
               oLOCAL_SETTING.bitA   <= iCH_Disc(sChCounter);
               oLOCAL_SETTING.bitB   <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              oFLAG.busy	<= '1';
               sPS                   <= CONFIG_TP;
             else
+              oFLAG.busy	<= '1';
               sPS                   <= SYNCH;
             end if;
           
@@ -197,6 +199,8 @@ begin
           --! Acquisizione dell'ultimo bit dello stream dati
           when CONFIG_END =>
             if (sClkOutFalling = '1') then
+              oLOCAL_SETTING.bitA  <= '0';
+              oLOCAL_SETTING.bitB  <= '0';
               sPS         <= IDLE;
             else
               sClkOutEn   <= '1';
