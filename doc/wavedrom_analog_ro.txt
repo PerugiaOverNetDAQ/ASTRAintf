@@ -1,0 +1,34 @@
+{head:{
+  text:'ASTRA Analog Readout mode transaction',
+  tick:0,
+  every:1
+ },
+ signal: [
+  ['Analog Read Out',
+   {                          node:'..A.B...', phase:0.15},
+   {name:'MUX_shift_CLK',     wave:'0pP....p', phase: 0.0, period: 2,
+                              node:'..012.3........'},
+   {name:'HOLD',              wave:'1.0..........1.', phase:-0.6,
+                              node:'..a..........i.'},
+   {name:'MUX_readRESET',     wave:'0..1.........0.', phase:-0.6,
+                              node:'...b.........j.'},
+   {name:'MUX_out (at ADC)',  wave:'x...2.2.2.2.2.x', data:'0 1 2 ... 31',
+    						  node:'....c.d.e.f.g.h', phase:-0.2},
+   {                          node:'....C.........D', phase:-0.2}
+  ],
+  ['External ADC',
+   {name:'Sampling',          wave:'0....101010..10', 
+    						  node:'...............', phase:-0.8},
+   {name:'CS_n',              wave:'1....0.0.0.0.0.1', 
+    						  node:'...............', phase:-0.8},
+  ],
+ ],
+ edge: [
+  'A+B 200 ns', '0-~c', '1-~d', '2-~e', '3-~g', 'C+D 32 x MUX_shift_CLK = 6.4 us', 'b-j 6.4 us'
+  ],
+ foot:{
+  //text:'',
+  tock:0
+ }
+}
+

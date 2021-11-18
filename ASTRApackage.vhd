@@ -14,7 +14,7 @@ package ASTRApackage is
   constant cADC_DATA_WIDTH       : natural := 16;  --!ADC data-width
   constant cADC_FIFO_DEPTH       : natural := 256;  --!ADC FIFO number of words
   constant cTOTAL_ADC_WORDS_NUM  : natural := 2048;  --! numero totale massimo di parole da 16 bit nella fifo finale 1280??
-  constant cFE_DAISY_CHAIN_DEPTH : natural := 2;   --!FEs in a daisy chain
+  constant cFE_DAISY_CHAIN_DEPTH : natural := 1;   --!FEs in a daisy chain
   constant cFE_CHANNELS          : natural := 64;  --!Channels per FE
   constant cFE_CLOCK_CYCLES      : natural := cFE_DAISY_CHAIN_DEPTH*cFE_CHANNELS;  --!Number of clock cycles to feed a chain
   constant cFE_SHIFT_2_CLK       : natural := 2; --!Wait between FE shift and clock assertion
@@ -117,6 +117,26 @@ package ASTRApackage is
   type tMultiAdc2FpgaIntf is array (0 to cTOTAL_ADCS-1) of tAdc2FpgaIntf;
   type tMultiAdcFifoIn is array (0 to cTOTAL_ADCS-1) of tFifoIn_ADC;
   type tMultiAdcFifoOut is array (0 to cTOTAL_ADCS-1) of tFifoOut_ADC;
+  
+  --!ASTRA Global setting
+  type tAstraGlobalSetting is record
+    ser_tx_dis      : std_logic;	--!disable the serializer TX
+    debug_en        : std_logic;	--!enable the 8 debug output pad
+    pt1             : std_logic;	--!set the LSB of peaking time register
+    pt2             : std_logic;	--!set the MSB of peaking time register
+    fastor_tx_dis   : std_logic;	--!disable the fast-or TX
+    ext_bias        : std_logic;	--!force the usage of external bias
+    gain            : std_logic;	--!set the gain of the preaplifier
+    pol             : std_logic;	--!set the polarity of the preamplifier
+  end record tAstraGlobalSetting;
+  
+  --!ASTRA Local setting, output
+  type tAstraLocalSetting is record
+    clk      : std_logic;		--!Slow clock (1-5 MHz) for channels configuration
+    bitA    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK A, channel 0-31)
+    bitB    : std_logic;		--!Input of the bit stream for channel configuration (BLOCK B, channel 32-63)
+    rst      : std_logic;		--!Reset of channels configuration
+  end record tAstraLocalSetting;
 
   --!Initialization constants for the upper types
   constant c_FROM_FIFO_INIT : tFifoOut_ADC := (full   => '0',
@@ -147,5 +167,6 @@ package ASTRApackage is
       oMULTI_FIFO : out tMultiAdcFifoIn
       );
   end component multiADC_interface;
+  
 
 end ASTRApackage;

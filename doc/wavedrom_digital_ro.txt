@@ -1,0 +1,46 @@
+{head:{
+  text:'ASTRA Digital Readout mode transaction',
+  tick:0,
+  every:1
+ },
+ signal: [
+  {name:'HOLD',               wave:'10.|.1...............|', phase:-0.0,
+                              node:'.....X.....Z..........'},
+  {                           node:'AB....................', phase: 0.15},
+  ['Digital Read Out',
+   {name:'FastCLK',           wave:'p..|.................|', phase: 0.0, period: 1,
+                              node:'......................'},
+   {name:'RESET_dig',         wave:'010..................|', phase:-0.0,
+                              node:'......................'},
+   {name:'ADC_convert',       wave:'0.1|0................|', data:'',
+    						  node:'..c.d.................', phase:-0.0},
+   {                          node:'.....E.............G..', phase:-0.0},
+   ['Serializer',
+     {name:'SER_shift_CLK',   wave:'0..|.10............10|', data:'',
+    						  node:'.....ef............g..', phase:-0.0},
+     {name:'SER_load',        wave:'0..|...1.0...........|', data:'',
+      						  node:'.....F.h.i............', phase:-0.0},
+     {name:'SER_send',        wave:'0..|......1.......0..|', data:'',
+    						  node:'..........k.......l...', phase:-0.0},
+     {name:'SER_OUT',          wave:'x..|......=.456789x..|', data:'1010 0-1 2-3 4-5 6-7 8-9 10-11',
+    						  node:'......................', phase:-0.0},
+   {                          node:'..C.D.....K.Y.....L...', phase:-0.0}
+   ],
+  ],
+ ],
+ edge: [
+   'A+B 10 ns', 'c-C', 'd-D', 'C+D ADC recharge', 'e-E', 'g-G',
+   'e-F', 'F+h 1-2 clk', 'h+i 1-2 clk',
+   'k-l 8 x FastCLK = 80 ns',
+   
+   'E+G 15 x FastCLK = 150 ns (very-low duty cycle)',
+   'K+Y Fixed header', 'Y+L DDR Data, channel 0',
+   'ik needed?', 'lg needed?', 'de ok?',
+   'XZ HOLD down until all channels converted?'
+ ],
+ foot:{
+  text:'Repeat the SER_load and SER_send for nCH times',
+  tock:0
+ },
+}
+

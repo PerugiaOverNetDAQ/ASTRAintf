@@ -74,11 +74,27 @@ package basic_package is
   end component;
   -- clock_divider -------------------------------------------------------------
   component clock_divider is
-    generic(pPOLARITY : std_logic);
+    generic(
+      pPOLARITY	: std_logic
+      );
+    port(
+    iCLK              : in std_logic;
+    iRST              : in std_logic;
+    iEN               : in std_logic;
+    iPERIOD           : in std_logic_vector(31 downto 0);
+    iDUTY_CYCLE       : in std_logic_vector(31 downto 0);
+    oCLK_OUT          : out std_logic;
+    oCLK_OUT_RISING   : out std_logic;
+    oCLK_OUT_FALLING  : out std_logic
+    );
+  end component;
+  -- clock_divider_2 -------------------------------------------------------------
+  component clock_divider_2 is
+    generic(pPOLARITY : std_logic;
+      pWIDTH : natural);
     port(iCLK, iRST, iEN : in  std_logic;
-       oCLK_OUT, oCLK_OUT_RISING, oCLK_OUT_FALLING : out std_logic;
-       iFREQ_DIV   : in  std_logic_vector(15 downto 0);
-	   iDUTY_CYCLE : in  std_logic_vector(15 downto 0));
+      oCLK_OUT, oCLK_OUT_RISING, oCLK_OUT_FALLING: out std_logic;
+      iFREQ_DIV, iDUTY_CYCLE : in  std_logic_vector(pWIDTH-1 downto 0));
   end component;
   -- parametric_fifo_synch -----------------------------------------------------
   component parametric_fifo_synch is
@@ -118,19 +134,19 @@ component differential_rx is
  end component;
  component STD_FIFO is
  Generic (
-		constant DATA_WIDTH  : natural;
-		constant FIFO_DEPTH	: natural
-	);
-	Port (
-		CLK		: in  STD_LOGIC;
-		RST		: in  STD_LOGIC;
-		WriteEn	: in  STD_LOGIC;
-		DataIn	: in  STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
-		ReadEn	: in  STD_LOGIC;
-		DataOut	: out STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
-		Empty	: out STD_LOGIC;
-		Full	: out STD_LOGIC
-	);
+  constant DATA_WIDTH  : natural;
+  constant FIFO_DEPTH	: natural
+  );
+  Port (
+  CLK		: in  STD_LOGIC;
+  RST		: in  STD_LOGIC;
+  WriteEn	: in  STD_LOGIC;
+  DataIn	: in  STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
+  ReadEn	: in  STD_LOGIC;
+  DataOut	: out STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
+  Empty	: out STD_LOGIC;
+  Full	: out STD_LOGIC
+  );
 
 end component;
   -- pulse_generator -----------------------------------------------------------
