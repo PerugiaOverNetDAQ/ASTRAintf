@@ -2,7 +2,7 @@ This repository contains the FPGA gateware to readout the ASTRA microstrip detec
 
 # Architecture
 
-To be added: ![ASTRA INTF Block Diagram](./doc/img/.png)
+![ASTRA INTF Block Diagram](./doc/img/ASTRA_Block_Diagram.png)
 
 - **multiADC_interface.vhd**: interface to the ADCs. Samples the incoming signals in a 16-bit shift-register.
 - **PRG_driver.vhd**: driver of the PRG interface
