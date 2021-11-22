@@ -73,7 +73,9 @@ package ASTRApackage is
 
   --!AD7276A ADC output signals (to the FPGA)
   type tAdc2FpgaIntf is record
-    SData : std_logic;
+    SData  : std_logic;
+    clkRet : std_logic;
+    csRet  : std_logic;
   end record tAdc2FpgaIntf;
 
   --!Input signals of a typical FIFO memory

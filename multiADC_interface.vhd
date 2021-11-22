@@ -31,7 +31,7 @@ end multiADC_interface;
 
 --!@copydoc multiADC_interface.vhd
 architecture std of multiADC_interface is
-  constant cCOUNT_INTERFACE : natural := 8;
+  constant cCOUNT_INTERFACE : natural := 5;
 
   signal sCntIn    : tControlIntfIn;
   signal sCntOut   : tControlIntfOut;
