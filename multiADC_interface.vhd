@@ -1,8 +1,8 @@
 --!@file multiADC_interface.vhd
---!@brief Low-level interface for multiple ADCs (possibly, AD7276)
+--!@brief Low-level interface for multiple AD7276A ADCs
+--!@details Serial interface with the 12-bit ADC.
+--!         See the ADC datasheet for additional details
 --!@author Mattia Barbanera, mattia.barbanera@infn.it
---!@date 16/06/2020
---!@version 0.1 - 03/07/2020 - SV Testbench
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -13,24 +13,23 @@ use ieee.math_real.all;
 use work.basic_package.all;
 use work.ASTRApackage.all;
 
---!@brief Low-level interface for multiple ADCs (possibly, AD7276)
---!@details Serial interface with the 12-bit ADC.
---!See the ADC datasheet for additional details
+--!@copydoc multiADC_interface.vhd
 entity multiADC_interface is
   port (
-    iCLK  : in  std_logic;                --!Main clock
-    iRST  : in  std_logic;                --!Main reset
+    iCLK        : in  std_logic;           --!Main clock
+    iRST        : in  std_logic;           --!Main reset
     -- control interface
-    oCNT  : out tControlIntfOut;          --!Control signals in output
-    iCNT  : in  tControlIntfIn;           --!Control signals in input
+    oCNT        : out tControlIntfOut;     --!Control signals in output
+    iCNT        : in  tControlIntfIn;      --!Control signals in input
     -- ADC interface
-    oADC        : out tFpga2AdcIntf;      --!Signals from the FPGA to the ADCs
-    iMULTI_ADC  : in  tMultiAdc2FpgaIntf; --!Signals from the ADCs to the FPGA
+    oADC        : out tFpga2AdcIntf;       --!Signals from the FPGA to the ADCs
+    iMULTI_ADC  : in  tMultiAdc2FpgaIntf;  --!Signals from the ADCs to the FPGA
     -- Word in output
-    oMULTI_FIFO : out tMultiAdcFifoIn     --!Output data and write request
+    oMULTI_FIFO : out tMultiAdcFifoIn      --!Output data and write request
     );
 end multiADC_interface;
 
+--!@copydoc multiADC_interface.vhd
 architecture std of multiADC_interface is
   constant cCOUNT_INTERFACE : natural := 8;
 
@@ -79,8 +78,8 @@ architecture std of multiADC_interface is
     parOut : std_logic_vector(cADC_DATA_WIDTH-1 downto 0);
   end record tShiftRegInterface;
   type tMultiShiftRegIntf is array (0 to cTOTAL_ADCS-1) of tShiftRegInterface;
-  signal sSrRst : std_logic;
-  signal sSrEn  : std_logic;
+  signal sSrRst   : std_logic;
+  signal sSrEn    : std_logic;
   --signal sSr    : tShiftRegInterface;
   signal sMultiSr : tMultiShiftRegIntf;
 
@@ -94,11 +93,11 @@ begin
 
   sAdc2Fpga <= iMULTI_ADC;
 
-  oMULTI_FIFO   <= sOutWord;
+  oMULTI_FIFO <= sOutWord;
   ------------------------------------------------------------------------------
 
-  --! @brief Output signals in a synchronous fashion, without reset
-  --! @param[in] iCLK Clock, used on rising edge
+  --!@brief Output signals in a synchronous fashion, without reset
+  --!@param[in] iCLK Clock, used on rising edge
   ADC_synch_signals_proc : process (iCLK)
   begin
     if (rising_edge(iCLK)) then
@@ -129,15 +128,16 @@ begin
       --!@todo How do I check the "when others" statement?
       sCntOut.error <= '0';
 
-      --!@todo The compl flag can be anticipated to the 13th cycle of the ADC /
-      --!to save some conversione time
-      --since the ADC releases its input at that moment
+      --!@todo The compl flag can be anticipated to the 13th cycle of the ADC 
+      --!to save some conversione time,
+      --!since the ADC releases its input at that moment
       if (sNextAdcState = WRITE_WORD) then
         sCntOut.compl <= '1';
       else
         sCntOut.compl <= '0';
       end if;
 
+      --!@todo Sample incoming bits at clkRet rising edge
       if (sAdcState = SAMPLE or sAdcState = ASSERT_CS) then
         sSrEn <= sCntIn.slwEn;
       else
@@ -182,7 +182,7 @@ begin
     sampler : shift_register
       generic map(
         pWIDTH => cADC_DATA_WIDTH,
-        pDIR   => "LEFT"                  --"RIGHT"
+        pDIR   => "LEFT"                --"RIGHT"
         )
       port map(
         iCLK      => iCLK,
@@ -198,7 +198,7 @@ begin
     sOutWord(i).data <= sMultiSr(i).parOut;
     sOutWord(i).wr   <= '1' when (sAdcState = WRITE_WORD) else
                         '0';
-    sOutWord(i).rd   <= '0';
+    sOutWord(i).rd <= '0';
   end generate SR_GENERATE;
 
   --!@brief Add FFDs to the combinatorial signals
@@ -219,7 +219,6 @@ begin
   --! @param[in] sCntIn Input signals of the control interface
   --! @param[in] sCountIntf.count Output of the delay counter
   --! @return sNextAdcState  Next state of the FSM
-  --! @vhdlflow
   FSM_ADC_proc : process (sAdcState, sCntIn, sCountIntf.count)
   begin
     case (sAdcState) is
