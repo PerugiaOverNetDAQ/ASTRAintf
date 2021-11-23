@@ -7,12 +7,9 @@
   ['PRG',
    {name:'PRG_CLK',   wave:'l..P..|.l', period: 2, node:'.........' },
    {                                           node:'......C.D....', phase:0.15},
-   {name:'PRG_RST',   wave:'x01.0........|....'},
-   {name:'PRG_BIT_A', wave:'2......2.2.2|2.x..', data:'DISC_A31 TP_A31 MASK_A31 ... MASK_A0'},
-   {name:'PRG_BIT_B', wave:'x....2.2.2.2|2.x..', data:'DISC_B31 TP_B31 MASK_B31 ... MASK_B0'},
-   {},
-   {name:'PRG_BIT_A_90', wave:'2.......2.2.2|2.x..', data:'DISC_A31 TP_A31 MASK_A31 ... MASK_A0'},
-   {name:'PRG_BIT_B_90', wave:'x.....2.2.2.2|2.x..', data:'DISC_B31 TP_B31 MASK_B31 ... MASK_B0'}
+   {name:'PRG_RST',   wave:'x10.1.......|.....'},
+   {name:'PRG_BIT_A', wave:'x....2.2.2.2|2.x..', data:'DISC_A31 TP_A31 MASK_A31 ... MASK_A0'},
+   {name:'PRG_BIT_B', wave:'x....2.2.2.2|2.x..', data:'DISC_B31 TP_B31 MASK_B31 ... MASK_B0'}
   ]
  ],
  edge: [
@@ -23,5 +20,3 @@
   tock:0
  }
 }
-
-

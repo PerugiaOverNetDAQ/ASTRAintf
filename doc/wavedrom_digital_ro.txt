@@ -35,7 +35,6 @@
    
    'E+G 15 x FastCLK = 150 ns (very-low duty cycle)',
    'K+Y Fixed header', 'Y+L DDR Data, channel 0',
-   'ik needed?', 'lg needed?', 'de ok?',
    'XZ HOLD down until all channels converted?'
  ],
  foot:{
