@@ -128,14 +128,16 @@ begin
       --!@todo How do I check the "when others" statement?
       sCntOut.error <= '0';
 
-      --!todo #6
+      --!@todo #6 The compl flag can be anticipated to the 13th cycle of the ADC 
+      --!to save some conversione time,
+      --!since the ADC releases its input at that moment
       if (sNextAdcState = WRITE_WORD) then
         sCntOut.compl <= '1';
       else
         sCntOut.compl <= '0';
       end if;
 
-      --!@todo Sample incoming bits at clkRet rising edge
+      --!@todo #7 Sample incoming bits at clkRet rising edge
       if (sAdcState = SAMPLE or sAdcState = ASSERT_CS) then
         sSrEn <= sCntIn.slwEn;
       else
