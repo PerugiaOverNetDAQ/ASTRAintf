@@ -1,5 +1,6 @@
 --!@file astraDriver.vhd
 --!@brief Low-level interface of the analog multiplexer of ASTRA
+--!@todo Add test pulse management
 --!@author Mattia Barbanera, mattia.barbanera@infn.it
 
 library ieee;
@@ -19,7 +20,6 @@ entity astraDriver is
     -- control interface
     oCNT      : out tControlIntfOut;    --!Control signals in output
     iCNT      : in  tControlIntfIn;     --!Control signals in input
-    iCNT_OTHER_EDGE : in std_logic;     --!Opposite edge (compared to iCNT.slwEn)
     oDATA_VLD : out std_logic;          --!Flags data available at ADC input
     -- ASTRA interface
     oFE       : out tFpga2FeIntf;       --!Signals from the FPGA to ASTRA
@@ -40,7 +40,7 @@ architecture std of astraDriver is
   signal sFe2Fpga : tFe2FpgaIntf;
 
   type tFsmFe is (RESET, IDLE, SYNCH_START, HOLD, READ_RESET,
-                  FIRST_CLOCK, CLOCK_FORWARD, SYNCH_END, COMPLETE);
+                  CLOCK_FORWARD, SYNCH_END, COMPLETE);
   signal sFeState, sNextFeState : tFsmFe;
 
   --!@brief Wait for the enable assertion to change state
@@ -88,8 +88,6 @@ architecture std of astraDriver is
   end record tS2cCountInterface;
   signal sS2cCountRst : std_logic;
   signal sS2cCount    : tS2cCountInterface;
-
-  signal sAtLeastOneFe : std_logic;
 begin
   -- Combinatorial assignments -------------------------------------------------
   oCNT   <= sCntOut;
@@ -103,25 +101,25 @@ begin
   FE_synch_signals_proc : process (iCLK)
   begin
     if (rising_edge(iCLK)) then
-      if (sFeState = HOLD or sFeState = READ_RESET or sFeState = FIRST_CLOCK
+      if (sFeState = HOLD or sFeState = READ_RESET
           or sFeState = CLOCK_FORWARD or sFeState = SYNCH_END) then
         sFpga2Fe.hold_b <= '0';
       else
         sFpga2Fe.hold_b <= '1';
       end if;
 
-      if (sFeState = RESET or sFeState = IDLE or
-         (sFeState = FIRST_CLOCK and iCNT_OTHER_EDGE='1')) then
+      if (sFeState = READ_RESET or sFeState = CLOCK_FORWARD
+          or sFeState = SYNCH_END) then
+        sFpga2Fe.readRst <= '1';
+      else
         sFpga2Fe.readRst <= '0';
-      elsif (sFeState = READ_RESET) then
-        sFpga2Fe.readRst <= not sAtLeastOneFe;
       end if;
 
-      if (sFeState = FIRST_CLOCK or sFeState = CLOCK_FORWARD
-          or sFeState = SYNCH_END) then
+      if (sFeState = CLOCK_FORWARD or sFeState = SYNCH_END 
+          or sFeState = HOLD or sFeState = READ_RESET) then
         sFpga2Fe.shiftClk <= sCntIn.slwClk;
       else
-        sFpga2Fe.shiftClk <= '1';
+        sFpga2Fe.shiftClk <= '0';
       end if;
 
       if (sNextFeState /= IDLE) then
@@ -145,14 +143,7 @@ begin
         sCntOut.compl <= '0';
       end if;
 
-      if (sFeState = SYNCH_END) then
-        sAtLeastOneFe <= '1';
-      elsif (sFeState = HOLD) then
-        sAtLeastOneFe <= '0';
-      end if;
-
-      if (sNextFeState = FIRST_CLOCK or sNextFeState = CLOCK_FORWARD
-          or sNextFeState = SYNCH_END) then
+      if (sNextFeState = CLOCK_FORWARD or sNextFeState = SYNCH_END) then
         oDATA_VLD <= '1';
       else
         oDATA_VLD <= '0';
@@ -172,8 +163,7 @@ begin
   sChCountRst <= '1' when (sFeState = RESET or sFeState = IDLE
                            or sFeState = READ_RESET) else
                  '0';
-  sChCount.en <= sCntIn.slwEn when (sFeState = FIRST_CLOCK
-                                    or sFeState = CLOCK_FORWARD) else
+  sChCount.en <= sCntIn.slwEn when (sFeState = CLOCK_FORWARD) else
                  '0';
   --! @brief Multi-purpose counter to implement delays in the FSM
   CH_COUNTER : counter
@@ -282,12 +272,8 @@ begin
           sNextFeState <= READ_RESET;
         else
           --Delay concluded
-          sNextFeState <= wait4en(sCntIn.slwEn, READ_RESET, FIRST_CLOCK);
+          sNextFeState <= wait4en(sCntIn.slwEn, READ_RESET, CLOCK_FORWARD);
         end if;
-
-      --First clock forwarded to ASTRA
-      when FIRST_CLOCK =>
-        sNextFeState <= wait4en(sCntIn.slwEn, FIRST_CLOCK, CLOCK_FORWARD);
 
       --Send the remaining clocks to ASTRA(s)
       when CLOCK_FORWARD =>
