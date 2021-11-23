@@ -1,6 +1,6 @@
 --!@file astraDriver.vhd
 --!@brief Low-level interface of the analog multiplexer of ASTRA
---!@todo Add test pulse management
+--!@todo #5 Add test pulse management @mbarbane
 --!@author Mattia Barbanera, mattia.barbanera@infn.it
 
 library ieee;
@@ -245,8 +245,7 @@ begin
     case (sFeState) is
       --Reset the FSM
       when RESET =>
-      --!@todo Remove the wait for the slwEn?
-        sNextFeState <= wait4en(sCntIn.slwEn, RESET, IDLE);
+        sNextFeState <= IDLE;
 
       --Wait for the START signal to be asserted
       when IDLE =>

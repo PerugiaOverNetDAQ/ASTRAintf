@@ -128,9 +128,7 @@ begin
       --!@todo How do I check the "when others" statement?
       sCntOut.error <= '0';
 
-      --!@todo The compl flag can be anticipated to the 13th cycle of the ADC 
-      --!to save some conversione time,
-      --!since the ADC releases its input at that moment
+      --!todo #6
       if (sNextAdcState = WRITE_WORD) then
         sCntOut.compl <= '1';
       else

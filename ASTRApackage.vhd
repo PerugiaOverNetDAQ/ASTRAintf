@@ -9,7 +9,7 @@ use ieee.std_logic_unsigned.all;
 
 use work.basic_package.all;
 
---!@copydo ASTRApackage
+--!@copydoc ASTRApackage.vhd
 package ASTRApackage is
   constant cADC_DATA_WIDTH       : natural := 16;  --!ADC data-width
   constant cADC_FIFO_DEPTH       : natural := 256;  --!ADC FIFO number of words
