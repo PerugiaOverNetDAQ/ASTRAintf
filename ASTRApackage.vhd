@@ -31,22 +31,18 @@ package ASTRApackage is
   constant cTRG2HOLD     : std_logic_vector(15 downto 0) := int2slv(325, 16);  --!Clock-cycles between an external trigger and the FE-HOLD signal
 
   -- Types for the FE interface ------------------------------------------------
-  --!IDE1140_DS front-End input signals (from the FPGA)
+  --!ASTRA front-End input signals (from the FPGA)
   type tFpga2FeIntf is record
-    G0      : std_logic;
-    G1      : std_logic;
-    G2      : std_logic;
-    Hold    : std_logic;                -- Active High
-    DRst    : std_logic;
-    ShiftIn : std_logic;                -- Active Low
-    Clk     : std_logic;
-    TestOn  : std_logic;
-  --Cal       : std_logic; --!@todo Table 2 (page 7) of datasaheet
+    hold_b   : std_logic;
+    readRst  : std_logic;
+    shiftClk : std_logic;
+    test     : std_logic;
   end record tFpga2FeIntf;
 
-  --!IDE1140_DS front-End output signals (to the FPGA)
+  --!ASTRA front-End output signals (to the FPGA)
   type tFe2FpgaIntf is record
-    ShiftOut : std_logic;               -- Active Low
+    readRstRet  : std_logic;  
+    shiftClkRet : std_logic;
   end record tFe2FpgaIntf;
 
   --!Control interface for a generic block: input signals
