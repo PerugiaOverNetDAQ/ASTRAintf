@@ -173,4 +173,34 @@ package ASTRApackage is
       );
   end component astraDriver;
 
+  --!@brief Readout instantiating astraDriver, multiADC_interface, and internal ADC intf
+  component detectorReadout is
+    generic (
+      pACTIVE_EDGE : string
+    );
+    port (
+      --# {{clocks|Clock}}
+      iCLK          : in  std_logic;
+      --# {{control|Control}}
+      iRST          : in  std_logic;
+      oCNT          : out tControlIntfOut;
+      iCNT          : in  tControlIntfIn;
+      iFE_CLK_DIV   : in  std_logic_vector(15 downto 0);
+      iFE_CLK_DUTY  : in  std_logic_vector(15 downto 0);
+      iADC_CLK_DIV  : in  std_logic_vector(15 downto 0);
+      iADC_CLK_DUTY : in  std_logic_vector(15 downto 0);
+      --# {{ASTRA interface}}
+      oFE           : out tFpga2FeIntf;
+      iFE           : in  tFe2FpgaIntf;
+      --# {{External ADCs interface}}
+      oADC          : out tFpga2AdcIntf;
+      iMULTI_ADC    : in  tMultiAdc2FpgaIntf;
+      --# {{Internal ADCs interface}}
+      --# {{Collector FIFO interface}}
+      oMULTI_FIFO   : out tMultiAdcFifoOut;
+      iMULTI_FIFO   : in  tMultiAdcFifoIn
+    );
+  end component;
+ 
+
 end ASTRApackage;
