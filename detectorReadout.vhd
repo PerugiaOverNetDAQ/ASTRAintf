@@ -30,6 +30,7 @@ entity detectorReadout is
     iFE_CLK_DUTY  : in  std_logic_vector(15 downto 0);  --!FE SlowClock duty cycle
     iADC_CLK_DIV  : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
     iADC_CLK_DUTY : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
+    iADC_DELAY    : in  std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
     -- ASTRA interface
     oFE           : out tFpga2FeIntf;   --!Output signals to ASTRA
     iFE           : in  tFe2FpgaIntf;   --!Input signals from ASTRA
@@ -45,10 +46,11 @@ end detectorReadout;
 
 --!@copydoc detectorReadout.vhd
 architecture std of detectorReadout is
-  signal sCntOut  : tControlIntfOut;
-  signal sCntIn   : tControlIntfIn;
-  signal sFifoOut : tMultiAdcFifoOut;
-  signal sFifoIn  : tMultiAdcFifoIn;
+  signal sCntOut      : tControlIntfOut;
+  signal sCntIn       : tControlIntfIn;
+  signal sFifoOut     : tMultiAdcFifoOut;
+  signal sFifoIn      : tMultiAdcFifoIn;
+  signal sStickyCompl : std_logic_vector(1 downto 0);
 
   signal sFe          : tFpga2FeIntf;
   signal sFeRst       : std_logic;
@@ -57,11 +59,12 @@ architecture std of detectorReadout is
   signal sFeDataVld   : std_logic;
   signal sFeOtherEdge : std_logic;
 
-  signal sAdc      : tFpga2AdcIntf;
-  signal sAdcRst   : std_logic;
-  signal sAdcOCnt  : tControlIntfOut;
-  signal sAdcICnt  : tControlIntfIn;
-  signal sAdcOFifo : tMultiAdcFifoIn;
+  signal sAdc         : tFpga2AdcIntf;
+  signal sAdcRst      : std_logic;
+  signal sAdcOCnt     : tControlIntfOut;
+  signal sAdcICnt     : tControlIntfIn;
+  signal sAdcOFifo    : tMultiAdcFifoIn;
+  signal sAdcIntStart : std_logic;
 
   -- Clock dividers
   signal sFeCdRis, sFeCdFal   : std_logic;
@@ -72,8 +75,8 @@ architecture std of detectorReadout is
   signal sAdcSlwRst           : std_logic;
 
   -- FSM signals
-  type tHpState is (RESET, WAIT_RESET, IDLE, START_HP_READING, FE_EDGE,
-                    START_ADC_READING, WAIT_FOR_ADC_END, END_HP_READING);
+  type tHpState is (RESET, WAIT_RESET, IDLE, START_READOUT, ASTRA_CLK_EDGE,
+                    START_EXTADC_RO, END_READOUT);
   signal sHpState, sNextHpState : tHpState;
   signal sFsmSynchEn            : std_logic;
 
@@ -126,6 +129,17 @@ begin
       oCLK_OUT_RISING  => sAdcCdRis,
       oCLK_OUT_FALLING => sAdcCdFal
       );
+
+  --!@brief Delay the ADC start readout of iADC_DELAY clock cycles
+  ADC_start_delay : delay_timer
+  port map (
+    iCLK   => iCLK,
+    iRST   => iRST,
+    iSTART => sAdcIntStart,
+    iDELAY => iADC_DELAY,
+    oBUSY  => open,
+    oOUT   => sAdcICnt.start
+  );
   ------------------------------------------------------------------------------
 
   sFeRst <= '1' when (sHpState = RESET) else
@@ -202,7 +216,7 @@ begin
         sAdcICnt.en <= '1';
       end if;
 
-      if (sHpState = START_HP_READING) then
+      if (sHpState = START_READOUT) then
         sFeICnt.start <= '1';
       else
         sFeICnt.start <= '0';
@@ -214,29 +228,39 @@ begin
         sFeSlwRst <= '0';
       end if;
 
-      if (sHpState = RESET or sHpState = FE_EDGE) then
-        sAdcSlwRst <= '1';
-      else
-        sAdcSlwRst <= '0';
-      end if;
-
       if (sHpState /= IDLE and sHpState /= RESET) then
         sFeSlwEn <= '1';
       else
         sFeSlwEn <= '0';
       end if;
 
-      if (sHpState = START_ADC_READING) then
-        sAdcICnt.start <= '1';
+      if (sHpState = START_EXTADC_RO) then
+        sAdcIntStart <= '1';
       else
-        sAdcICnt.start <= '0';
+        sAdcIntStart <= '0';
       end if;
 
-      if (sHpState = WAIT_RESET or sHpState = START_ADC_READING or
-          sHpState = WAIT_FOR_ADC_END) then
+      if (sHpState = RESET or sAdcOCnt.compl = '1') then
+        sAdcSlwRst <= '1';
+      else
+        sAdcSlwRst <= '0';
+      end if;
+
+      if (sHpState = WAIT_RESET or sAdcICnt.start = '1' or sAdcOCnt.busy = '1') then
         sAdcSlwEn <= '1';
       else
         sAdcSlwEn <= '0';
+      end if;
+
+      if (sHpState = IDLE) then
+        sStickyCompl <= (others => '0');
+      else
+        if (sFeOCnt.compl = '1') then
+          sStickyCompl(0) <= '1';
+        end if;
+        if (sStickyCompl(0) = '1' and sAdcOCnt.compl = '1') then
+          sStickyCompl(1) <= '1';
+        end if;
       end if;
 
       if (sHpState /= IDLE) then
@@ -251,7 +275,7 @@ begin
         sCntOut.reset <= '0';
       end if;
 
-      if (sHpState = END_HP_READING) then
+      if (sHpState = END_READOUT) then
         sCntOut.compl <= '1';
       else
         sCntOut.compl <= '0';
@@ -287,7 +311,6 @@ begin
   --! @param[in] sAdcOCnt  Output control ports of the ADC_interface
   --! @param[in] sFsmSynchEn Synch this FSM to the FSM of the FSM
   --! @return sNextHpState  Next state of the FSM
-  --! @vhdlflow
   FSM_HP_proc : process(sHpState, sCntIn, sFeOCnt, sAdcOCnt, sFsmSynchEn,
                         sFeDataVld)
   begin
@@ -307,46 +330,37 @@ begin
       --Wait for the START signal
       when IDLE =>
         if (sCntIn.en = '1' and sCntIn.start = '1') then
-          sNextHpState <= START_HP_READING;
+          sNextHpState <= START_READOUT;
         else
           sNextHpState <= IDLE;
         end if;
 
-      --Start reading the sensor by starting ASTRA; doesn't go to START_ADC_READING
-      --because ASTRA has a first state of HOLD
-      when START_HP_READING =>
+      --Start reading the sensor by starting ASTRA
+      when START_READOUT =>
         if (sFsmSynchEn = '1') then
-          sNextHpState <= FE_EDGE;
+          sNextHpState <= ASTRA_CLK_EDGE;
         else
-          sNextHpState <= START_HP_READING;
+          sNextHpState <= START_READOUT;
         end if;
 
       --Go to the last state or continue reading synchronized to the FE clock
-      when FE_EDGE =>
-        if (sFeOCnt.compl = '1') then
-          sNextHpState <= END_HP_READING;
+      when ASTRA_CLK_EDGE =>
+        if (sStickyCompl = "11") then
+          sNextHpState <= END_READOUT;
         else
           if (sFsmSynchEn = '1' and sFeDataVld = '1') then
-            sNextHpState <= START_ADC_READING;
+            sNextHpState <= START_EXTADC_RO;
           else
-            sNextHpState <= FE_EDGE;
+            sNextHpState <= ASTRA_CLK_EDGE;
           end if;
         end if;
 
-      --Start the ADC interface
-      when START_ADC_READING =>
-        sNextHpState <= WAIT_FOR_ADC_END;
-
-      --Stay in this state until the ADC interface completes the task
-      when WAIT_FOR_ADC_END =>
-        if (sAdcOCnt.compl = '1') then
-          sNextHpState <= FE_EDGE;
-        else
-          sNextHpState <= WAIT_FOR_ADC_END;
-        end if;
+      --Start the timer to begin the external ADC readout
+      when START_EXTADC_RO =>
+        sNextHpState <= ASTRA_CLK_EDGE;
 
       --The HP reading is concluded
-      when END_HP_READING =>
+      when END_READOUT =>
         sNextHpState <= IDLE;
 
       --State not foreseen

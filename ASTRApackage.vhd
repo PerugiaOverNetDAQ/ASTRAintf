@@ -189,6 +189,7 @@ package ASTRApackage is
       iFE_CLK_DUTY  : in  std_logic_vector(15 downto 0);
       iADC_CLK_DIV  : in  std_logic_vector(15 downto 0);
       iADC_CLK_DUTY : in  std_logic_vector(15 downto 0);
+      iADC_DELAY    : in  std_logic_vector(15 downto 0);
       --# {{ASTRA interface}}
       oFE           : out tFpga2FeIntf;
       iFE           : in  tFe2FpgaIntf;
