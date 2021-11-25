@@ -195,7 +195,9 @@ begin
         oPAR_DATA => sMultiSr(i).parOut
         );
 
-    sOutWord(i).data <= sMultiSr(i).parOut;
+    --!Discard the AD7276 zeroes at head and foot and replace them with ASTRA header
+    sOutWord(i).data(cADC_DATA_WIDTH-5 downto 0) <= sMultiSr(i).parOut(13 downto 2);
+    sOutWord(i).data(cADC_DATA_WIDTH-1 downto cADC_DATA_WIDTH-4) <= "1010";
     sOutWord(i).wr   <= '1' when (sAdcState = WRITE_WORD) else
                         '0';
     sOutWord(i).rd <= '0';

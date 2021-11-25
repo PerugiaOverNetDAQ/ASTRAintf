@@ -5,6 +5,7 @@
 --!\n\n **Reset duration shall be no less than 2 clock cycles**
 --!
 --!@author Mattia Barbanera, mattia.barbanera@infn.it
+--!@todo #8 ASTRA last channel readout
 
 library ieee;
 use ieee.std_logic_1164.all;
