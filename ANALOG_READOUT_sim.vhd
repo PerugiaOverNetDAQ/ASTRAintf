@@ -46,26 +46,32 @@ begin
   --!Introduced a delay on the output
   oMUX_OUT  <= transport sMuxOut after t1;
   
-  --!Set iHOLD before iMUX_READ_RESET
-    assert (iHOLD = '1' and iMUX_READ_RESET = '1')
-    report "An Attempt was made to set iMUX_READ_RESET before iHOLD"
-    severity ERROR;
+  --!Invalid configuration for (iHOLD, iMUX_READ_RESET)
+  assert not(rising_edge(iMUX_SHIFT_CLK) and iHOLD = '1' and iMUX_READ_RESET = '1')
+  report "Invalid configuration for (iHOLD, iMUX_READ_RESET)"
+  severity ERROR;
+  --!Incomplete Transaction
+  assert not((sMuxOut /= "ZZZZZZZZ" and sMuxOut < 30) and (rising_edge(iHOLD) or falling_edge(iMUX_READ_RESET)))
+  report "An Attempt was made to modify iHOLD or iMUX_READ_RESET before that the transaction was completed"
+  severity ERROR;
+  --!iMUX_READ_RESET too long
+  assert not(sMuxOut = 31 and rising_edge(iMUX_SHIFT_CLK) and iMUX_READ_RESET = '1')
+  report "Number of readable channel exceeded"
+  severity ERROR;
+
   mux_shift_sim : process
 	begin
+    --!Default values, to be overwritten when necessary
     sMuxOut <= (others => 'Z');
-		wait until iHOLD'event and iHOLD='0';
-		wait until iMUX_READ_RESET'event and iMUX_READ_RESET='1';
-		i <= 0;
+    i       <= 0;
+    --!Analog Readout implementation
+		wait until falling_edge(iHOLD);
+		wait until rising_edge(iMUX_READ_RESET);
     mux_out : while (i < cFE_CHANNELS) loop
-      wait until iMUX_SHIFT_CLK'event and iMUX_SHIFT_CLK='1';
-      sMuxOut <= std_logic_vector(to_unsigned(i, sMuxOut'length));
-      i <= i + 1;
-      
-      --!Incomplete Transaction
-      assert (iHOLD = '1' and iMUX_READ_RESET = '0')
-      report "An Attempt was made to modify iHOLD or iMUX_READ_RESET before that the transaction was completed"
-      severity ERROR;
-    end loop mux_out;    
+      wait until rising_edge(iMUX_SHIFT_CLK);
+      sMuxOut   <= std_logic_vector(to_unsigned(i, sMuxOut'length));
+      i         <= i + 1;
+    end loop mux_out;
 	end process;
 
 
