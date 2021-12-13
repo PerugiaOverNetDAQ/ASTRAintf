@@ -50,7 +50,7 @@ architecture Behavior of ADC_EXT_sim is
 begin
   --!Invalid use of the Synchronization Clock
   assert not(iCS = '1' and falling_edge(iSCLK))
-  report "An Attempt was made to receive the digital bit with Chip Select high"
+  report "An Attempt was made to receive the digital bit when Chip Select high"
   severity ERROR;
   --!Incomplete Transaction
   assert not(sWorkFlag = '1' and rising_edge(iCS))
@@ -82,7 +82,7 @@ begin
     oSDATA <= (others => '0');
     
     --!Twelve digital bit
-    ADC_out : while (i < 12) loop
+    ADC_out : while (i < 11) loop
       wait until falling_edge(iSCLK);
       wait for t7;
       oSDATA <= (others => 'X');
@@ -102,11 +102,13 @@ begin
     oSDATA <= (others => 'X');
     wait for t4 - t7;
     oSDATA <= (others => '0');
+    wait until falling_edge(iSCLK);
     wait for t8;
     oSDATA      <= (others => 'Z');
+    sWorkFlag   <= '0';
     sQuietFlag  <= '1';
     wait for tq;
 	end process;
-
-
+  
+    
 end architecture;
