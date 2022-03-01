@@ -32,8 +32,8 @@ use work.ASTRApackage.all;
 --!@copydoc PRG_driver.vhd
 entity PRG_driver is
   generic(
-		pNumBlock             : natural := 2;         --!Blocchi ASTRA (min=1, max=2)
-    pChannelPerBlock      : natural := 32         --!Canali per singolo blocco
+		pNumBlock   : natural := 2;         --!Blocchi ASTRA (min=1, max=2)
+    pChPerBlock : natural := 32         --!Canali per singolo blocco
 		);
   port(
     iCLK         				  : in  std_logic;        --!Clock principale
@@ -47,13 +47,10 @@ entity PRG_driver is
     -- Output Flag
     oFLAG				          : out tControlIntfOut;    --! Se busy='1', il PRG_driver è impegnato nella cofigurazione locale del chip ASTRA, altrimenti è libero di ricevere comandi
     -- ASTRA Local Setting
-    iCH_Mask     				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
-    iCH_TP_EN    				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
-    iCH_Disc     				  : in  std_logic_vector((pNumBlock*pChannelPerBlock)-1 downto 0);
-    oLOCAL_SETTING   		  : out tAstraLocalSetting;
-    -- ASTRA Global Setting
-    iGLOBAL_SETTING  		  : in  tAstraGlobalSetting;
-    oGLOBAL_SETTING			  : out tAstraGlobalSetting
+    iCH_Mask     				  : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
+    iCH_TP_EN    				  : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
+    iCH_Disc     				  : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
+    oLOCAL_SETTING   		  : out tAstraLocalSetting
     );
 end PRG_driver;
 
@@ -78,10 +75,7 @@ architecture Behavior of PRG_driver is
   signal sChCounter					  : integer range -2 to 127;
 
 
-begin
-  --!I pin di Global Setting di ASTRA sono connessi direttamente all'ingresso del PRG_Driver
-  oGLOBAL_SETTING	<= iGLOBAL_SETTING;
-  
+begin  
   --!Slow clock con frequenza [1-5 MHz]
 	SlowClockGen : clock_divider
 	generic map(
@@ -141,7 +135,7 @@ begin
           --!Ascolta le richieste di configurazione Locale o Globale
           when IDLE =>
             if (iWE = '1') then
-              sChCounter          <= pChannelPerBlock - 1;
+              sChCounter          <= pChPerBlock - 1;
               sPS                 <= SYNCH;
             else
               sPS                 <= IDLE;
@@ -152,7 +146,7 @@ begin
             if (sClkOutFalling = '1') then
               sClkOutEn             <= '1';
               oLOCAL_SETTING.bitA   <= iCH_Disc(sChCounter);
-              oLOCAL_SETTING.bitB   <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              oLOCAL_SETTING.bitB   <= iCH_Disc(sChCounter + (pChPerBlock*(pNumBlock - 1)));
               oFLAG.busy	<= '1';
               sPS                   <= CONFIG_TP;
             else
@@ -166,7 +160,7 @@ begin
             oFLAG.busy	<= '1';            
             if (sClkOutFalling = '1') then
               oLOCAL_SETTING.bitA  <= iCH_Disc(sChCounter);
-              oLOCAL_SETTING.bitB  <= iCH_Disc(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              oLOCAL_SETTING.bitB  <= iCH_Disc(sChCounter + (pChPerBlock*(pNumBlock - 1)));
               sPS           	 	   <= CONFIG_TP;
             end if;
             
@@ -176,7 +170,7 @@ begin
             oFLAG.busy	<= '1';            
             if (sClkOutFalling = '1') then
               oLOCAL_SETTING.bitA  <= iCH_TP_EN(sChCounter);
-              oLOCAL_SETTING.bitB  <= iCH_TP_EN(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              oLOCAL_SETTING.bitB  <= iCH_TP_EN(sChCounter + (pChPerBlock*(pNumBlock - 1)));
               sPS           	 	   <= CONFIG_MASK;
           end if; 
             
@@ -186,7 +180,7 @@ begin
             oFLAG.busy	<= '1';            
             if (sClkOutFalling = '1') then
               oLOCAL_SETTING.bitA  <= iCH_Mask(sChCounter);
-              oLOCAL_SETTING.bitB  <= iCH_Mask(sChCounter + (pChannelPerBlock*(pNumBlock - 1)));
+              oLOCAL_SETTING.bitB  <= iCH_Mask(sChCounter + (pChPerBlock*(pNumBlock - 1)));
               sPS           	 	   <= CONFIG_MASK;
               sChCounter           <= sChCounter - 1;
               if (sChCounter > 0) then

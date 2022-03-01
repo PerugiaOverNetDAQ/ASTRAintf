@@ -11,24 +11,24 @@ use work.basic_package.all;
 
 --!@copydoc ASTRApackage.vhd
 package ASTRApackage is
-  constant cADC_DATA_WIDTH       : natural := 16;  --!ADC data-width
+  constant cADC_DATA_WIDTH       : natural := 16;   --!ADC data-width
   constant cADC_FIFO_DEPTH       : natural := 256;  --!ADC FIFO number of words
-  constant cTOTAL_ADC_WORDS_NUM  : natural := 2048;  --! numero totale massimo di parole da 16 bit nella fifo finale 1280??
   constant cFE_DAISY_CHAIN_DEPTH : natural := 1;   --!FEs in a daisy chain
   constant cFE_CHANNELS          : natural := 32;  --!Channels per FE
   constant cFE_CLOCK_CYCLES      : natural := cFE_DAISY_CHAIN_DEPTH*cFE_CHANNELS;  --!Number of clock cycles to feed a chain
   constant cFE_SHIFT_2_CLK       : natural := 1; --!Wait between FE shift and clock assertion
   constant cTOTAL_ADCS           : natural := 2; --!Total ADCs
 
+  constant cCLK_FREQ             : natural := 20; --!Clock frequency in ns (used only to compute delay)
+  constant cMULT                  : natural := 320; --!Multiplier of the BUSY stretch in ns
 
-  constant cFE_CLK_DIV   : std_logic_vector(15 downto 0) := int2slv(40, 16); --!FE SlowClock divider: was 160 at the GSI test beam
+  constant cFE_CLK_DIV   : std_logic_vector(15 downto 0) := int2slv(40, 16); --!FE SlowClock divider
   constant cADC_CLK_DIV  : std_logic_vector(15 downto 0) := int2slv(2, 16);  --!ADC SlowClock divider
   constant cFE_CLK_DUTY  : std_logic_vector(15 downto 0) := int2slv(4, 16);  --!FE SlowClock duty cycle
   constant cADC_CLK_DUTY : std_logic_vector(15 downto 0) := int2slv(4, 16);  --!ADC SlowClock duty cycle
-  --!iCFG_PLANE bits: 2:0: FE-Gs;  3: FE-test; 4: Ext-TRG; 15:5: x
-  constant cCFG_PLANE    : std_logic_vector(15 downto 0) := x"0007";  --!uStrip configurations
-  constant cTRG_PERIOD   : std_logic_vector(31 downto 0) := x"0000FFFF";  --!Clock cycles between two internal triggers
   constant cTRG2HOLD     : std_logic_vector(15 downto 0) := int2slv(325, 16);  --!Clock-cycles between an external trigger and the FE-HOLD signal
+  constant cADC_DELAY    : std_logic_vector(15 downto 0) := int2slv(29, 16);  --!Delay from the FE falling edge and the start of the AD conversion
+  constant cBUSY_LEN     : std_logic_vector(15 downto 0) := int2slv((cFE_CLOCK_CYCLES*cTOTAL_ADCS*cCLK_FREQ)/(2*cMULT), 16);  --!320-ns duration of busy extension time
 
   -- Types for the FE interface ------------------------------------------------
   --!ASTRA front-End input signals (from the FPGA)
@@ -108,27 +108,26 @@ package ASTRApackage is
   constant c_FROM_FIFO_INIT_ARRAY : tMultiAdcFifoOut := (others => c_FROM_FIFO_INIT);
 
   --!Configuration ports to the MSD subpart
-  type msd_config is record
+  type astraConfig is record
+    feClkDiv     : std_logic_vector(15 downto 0);  --!FE slowClock divider  
     feClkDuty    : std_logic_vector(15 downto 0);  --!FE slowClock duty cycle
-    feClkDiv     : std_logic_vector(15 downto 0);  --!FE slowClock divider
-    adcClkDuty   : std_logic_vector(15 downto 0);  --!ADC slowClock duty cycle
     adcClkDiv    : std_logic_vector(15 downto 0);  --!ADC slowClock divider
-    --!iCFG_PLANE bits: 2:0: FE-Gs;  3: FE-test; 4: Ext-TRG; 15:5: x
-    cfgPlane     : std_logic_vector(15 downto 0);  --!uStrip configuration
-    intTrgPeriod : std_logic_vector(31 downto 0);  --!Clock-cycles between two internal triggers
+    adcClkDuty   : std_logic_vector(15 downto 0);  --!ADC slowClock duty cycle
     trg2Hold     : std_logic_vector(15 downto 0);  --!Clock-cycles between an external trigger and the FE-HOLD signal
-  end record msd_config;
+    adcDelay     : std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
+    adcFastMode  : std_logic;
+  end record astraConfig;
   
   --!ASTRA Global setting interface
   type tAstraGlobalSetting is record
-    ser_tx_dis      : std_logic;  --!Disable the serializer
-    debug_en        : std_logic;  --!Enable the 8 debug output ports
-    pt1             : std_logic;  --!Peaking-time register LSB
-    pt2             : std_logic;  --!Peaking-time register MSB
-    fastor_tx_dis   : std_logic;  --!Disable the fast-or TX
-    ext_bias        : std_logic;  --!Use external bias
+    serialTxDisable : std_logic;  --!Disable the serializer
+    debugEn         : std_logic;  --!Enable the 8 debug output ports
+    peakTime1       : std_logic;  --!Peaking-time register LSB
+    peakTime2       : std_logic;  --!Peaking-time register MSB
+    fastOrTxDisable : std_logic;  --!Disable the fast-or TX
+    externalBias    : std_logic;  --!Use external bias
     gain            : std_logic;  --!Preamplifier gain
-    pol             : std_logic;  --!Preamplifier polarity
+    polarity        : std_logic;  --!Preamplifier polarity
   end record tAstraGlobalSetting;
   
   --!ASTRA Local setting serial interface
@@ -202,6 +201,32 @@ package ASTRApackage is
       iMULTI_FIFO   : in  tMultiAdcFifoIn
     );
   end component;
+
+  --!@brief ASTRA PRG interface for local configurations
+  component PRG_driver is
+    generic (
+      pNumBlock   : natural := 2;
+      pChPerBlock : natural := 32
+    );
+    port (
+      --# {{clocks|Clock}}
+      iCLK            : in  std_logic;
+      --# {{control|Control}}
+      iRST            : in  std_logic;
+      iEN             : in  std_logic;
+      iWE             : in  std_logic;
+      iPERIOD_CLK     : in  std_logic_vector(31 downto 0);
+      iDUTY_CYCLE_CLK : in  std_logic_vector(31 downto 0);
+      oFLAG           : out tControlIntfOut;
+      --# {{Configurations}}
+      iCH_Mask        : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
+      iCH_TP_EN       : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
+      iCH_Disc        : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
+      --# {{PRG Interface}}
+      oLOCAL_SETTING  : out tAstraLocalSetting
+    );
+  end component;
+ 
  
 
 end ASTRApackage;
