@@ -30,6 +30,9 @@ package ASTRApackage is
   constant cADC_DELAY    : std_logic_vector(15 downto 0) := int2slv(29, 16);  --!Delay from the FE falling edge and the start of the AD conversion
   constant cBUSY_LEN     : std_logic_vector(15 downto 0) := int2slv((cFE_CLOCK_CYCLES*cTOTAL_ADCS*cCLK_FREQ)/(2*cMULT), 16);  --!320-ns duration of busy extension time
 
+  constant cPRG_CLK_DIV  : std_logic_vector(15 downto 0) := int2slv(50, 16);  --!PRG clock period
+  constant cPRG_CLK_DUTY : std_logic_vector(15 downto 0) := int2slv(25, 16);  --!PRG clock duty cycle
+
   -- Types for the FE interface ------------------------------------------------
   --!ASTRA front-End input signals (from the FPGA)
   type tFpga2FeIntf is record
@@ -109,13 +112,20 @@ package ASTRApackage is
 
   --!Configuration ports to the MSD subpart
   type astraConfig is record
-    feClkDiv     : std_logic_vector(15 downto 0);  --!FE slowClock divider  
-    feClkDuty    : std_logic_vector(15 downto 0);  --!FE slowClock duty cycle
-    adcClkDiv    : std_logic_vector(15 downto 0);  --!ADC slowClock divider
-    adcClkDuty   : std_logic_vector(15 downto 0);  --!ADC slowClock duty cycle
-    trg2Hold     : std_logic_vector(15 downto 0);  --!Clock-cycles between an external trigger and the FE-HOLD signal
-    adcDelay     : std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
-    adcFastMode  : std_logic;
+    feClkDiv    : std_logic_vector(15 downto 0);  --!FE slowClock divider  
+    feClkDuty   : std_logic_vector(15 downto 0);  --!FE slowClock duty cycle
+    adcClkDiv   : std_logic_vector(15 downto 0);  --!ADC slowClock divider
+    adcClkDuty  : std_logic_vector(15 downto 0);  --!ADC slowClock duty cycle
+    trg2Hold    : std_logic_vector(15 downto 0);  --!Clock-cycles between an external trigger and the FE-HOLD signal
+    extendBusy  : std_logic_vector(15 downto 0);  --!320-ns duration of busy extension time
+    adcDelay    : std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
+    adcFastMode : std_logic;
+    prgStart    : std_logic;
+    prgClkDiv   : std_logic_vector(15 downto 0);  --!PRG interface clock divider
+    prgClkDuty  : std_logic_vector(15 downto 0);  --!PRG interface clock duty cycle
+    chMask      : std_logic_vector(63 downto 0);  --!Channels mask
+    chTpEn      : std_logic_vector(63 downto 0);  --!Test-pulse enable
+    chDisc      : std_logic_vector(63 downto 0);  --!Discriminator enable
   end record astraConfig;
   
   --!ASTRA Global setting interface
@@ -131,12 +141,12 @@ package ASTRApackage is
   end record tAstraGlobalSetting;
   
   --!ASTRA Local setting serial interface
-  type tAstraLocalSetting is record
+  type tPrgIntf is record
     clk   : std_logic;  --!Slow clock (1-5 MHz)
     bitA  : std_logic;  --!Channel configuration serial data (BLOCK A,  0-31)
     bitB  : std_logic;  --!Channel configuration serial data (BLOCK B, 32-63)
     rst   : std_logic;  --!Reset
-  end record tAstraLocalSetting;
+  end record tPrgIntf;
 
   -- Components ----------------------------------------------------------------
   --!@brief Low-level multiple AD7276 ADCs interface
@@ -223,7 +233,7 @@ package ASTRApackage is
       iCH_TP_EN       : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
       iCH_Disc        : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
       --# {{PRG Interface}}
-      oLOCAL_SETTING  : out tAstraLocalSetting
+      oLOCAL_SETTING  : out tPrgIntf
     );
   end component;
  

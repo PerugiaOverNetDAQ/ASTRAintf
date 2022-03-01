@@ -50,7 +50,7 @@ entity PRG_driver is
     iCH_Mask     				  : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
     iCH_TP_EN    				  : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
     iCH_Disc     				  : in  std_logic_vector((pNumBlock*pChPerBlock)-1 downto 0);
-    oLOCAL_SETTING   		  : out tAstraLocalSetting
+    oLOCAL_SETTING   		  : out tPrgIntf
     );
 end PRG_driver;
 
