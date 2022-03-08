@@ -69,6 +69,13 @@ package ASTRApackage is
     SClk : std_logic;
     Cs   : std_logic; -- Active Low
   end record tFpga2AdcIntf;
+  
+  --!ASTRA ADC input signals (from the FPGA)
+  type tFpga2AstraAdc is record
+    SerShClk  : std_logic;     --!Shift clock (1-10 MHz) to read the channels ADC data
+    SerLoad   : std_logic;     --!Digital pulse to enable the serializer to load data
+    SerSend   : std_logic;     --!Digital pulse to enable the serializer to output data
+  end record tFpga2AstraAdc;
 
   --!AD7276A ADC output signals (to the FPGA)
   type tAdc2FpgaIntf is record
@@ -76,6 +83,13 @@ package ASTRApackage is
     clkRet : std_logic;
     csRet  : std_logic;
   end record tAdc2FpgaIntf;
+  
+  --!ASTRA ADC output signals (to the FPGA)
+  type tAstraAdc2Fpga is record
+    SerData     : std_logic;      --!Input from serializer bit stream
+    ClkRet      : std_logic;      --!Return clock from ASTRA
+    SerSendRet  : std_logic;      --!Return SER_SEND from ASTRA
+  end record tAstraAdc2Fpga;
 
   --!Input signals of a typical FIFO memory
   type tFifoIn_ADC is record
@@ -97,6 +111,9 @@ package ASTRApackage is
   type tMultiAdc2FpgaIntf is array (0 to cTOTAL_ADCS-1) of tAdc2FpgaIntf;
   type tMultiAdcFifoIn is array (0 to cTOTAL_ADCS-1) of tFifoIn_ADC;
   type tMultiAdcFifoOut is array (0 to cTOTAL_ADCS-1) of tFifoOut_ADC;
+  
+  --!Multiple ASTRA ADCs output signals
+  type tMultiAstraAdc2Fpga is array (0 to cTOTAL_ADCS-1) of tAstraAdc2Fpga;
 
   --!Initialization constants for the upper types
   constant c_TO_FIFO_INIT : tFifoIn_ADC := (wr   => '0',
