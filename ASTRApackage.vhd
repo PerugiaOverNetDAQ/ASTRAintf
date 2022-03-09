@@ -13,6 +13,7 @@ use work.basic_package.all;
 package ASTRApackage is
   constant cADC_DATA_WIDTH       : natural := 16;   --!ADC data-width
   constant cADC_FIFO_DEPTH       : natural := 256;  --!ADC FIFO number of words
+  constant cADC_MULTIFIFO_DEPTH  : natural := 8;    --!ADC MULTI FIFO number of words
   constant cFE_DAISY_CHAIN_DEPTH : natural := 1;   --!FEs in a daisy chain
   constant cFE_CHANNELS          : natural := 32;  --!Channels per FE
   constant cFE_CLOCK_CYCLES      : natural := cFE_DAISY_CHAIN_DEPTH*cFE_CHANNELS;  --!Number of clock cycles to feed a chain
@@ -106,11 +107,24 @@ package ASTRApackage is
     aFull  : std_logic;                                     --!Almost full
     full   : std_logic;                                     --!Full
   end record tFifoOut_ADC;
+  
+  --!Shift register signals
+  type tShiftRegInterface is record
+    en     : std_logic;
+    load   : std_logic;
+    serIn  : std_logic;
+    parIn  : std_logic_vector(cADC_DATA_WIDTH-1 downto 0);
+    serOut : std_logic;
+    parOut : std_logic_vector(cADC_DATA_WIDTH-1 downto 0);
+  end record tShiftRegInterface;
 
   --!Multiple AD7276A ADCs output signals and FIFOs
   type tMultiAdc2FpgaIntf is array (0 to cTOTAL_ADCS-1) of tAdc2FpgaIntf;
   type tMultiAdcFifoIn is array (0 to cTOTAL_ADCS-1) of tFifoIn_ADC;
   type tMultiAdcFifoOut is array (0 to cTOTAL_ADCS-1) of tFifoOut_ADC;
+  
+  --!MultiShift register signals
+  type tMultiShiftRegIntf is array (0 to cTOTAL_ADCS-1) of tShiftRegInterface;
   
   --!Multiple ASTRA ADCs output signals
   type tMultiAstraAdc2Fpga is array (0 to cTOTAL_ADCS-1) of tAstraAdc2Fpga;
