@@ -39,7 +39,7 @@ entity ADC_INT_driver is
     iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs
     --!Word in output
-    iMULTI_FIFO_RE  : in  std_logic;            --!Read request
+    iMULTI_FIFO_RE  : in  std_logic_vector (cTOTAL_ADCS-1 downto 0);   --!Read request
     oMULTI_FIFO     : out tMultiAdcFifoOut      --!Output data, empty and full FIFO
     );
 end ADC_INT_driver;
@@ -359,7 +359,7 @@ begin
         oEMPTY_R  => oMULTI_FIFO(i).empty,
         oFULL_R   => oMULTI_FIFO(i).full,
         oUSEDW_R  => open,
-        iRD_REQ   => iMULTI_FIFO_RE,
+        iRD_REQ   => iMULTI_FIFO_RE(i),
         oQ        => oMULTI_FIFO(i).q
         );        
   end generate FIFO_GENERATE;
