@@ -22,25 +22,25 @@ use work.user_package.all;
 --!@copydoc ADC_INT_driver.vhd
 entity ADC_INT_driver is
   port(
-    --FSM Main Command
+    --!FSM Main Command
     iCLK            : in  std_logic;        --!Clock
     iRST            : in  std_logic;        --!Reset
     iCTRL           : in  tControlIntfIn;   --!Control (enable, start, slow clock, slow enable)
     oFLAG				    : out tControlIntfOut;  --!Flag (busy, error, resetting, completetion)
-    --registerArray Interface
+    --!registerArray Interface
     iFAST_FREQ_DIV  : in std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
     iFAST_DC        : in std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
     iCONV_TIME      : in std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
-    --ADC Main Commands
+    --!ADC Main Commands
     oFAST_CLK       : out std_logic;     --!Input of ADC fast clock (25-100 MHz)
     oRST_DIG        : out std_logic;     --!Reset of the ADC, counter and serializer
     oADC_CONV       : out std_logic;     --!Digital pulse to start the conversion of the ADC
-    --Serializer Command/Data
+    --!Serializer Command/Data
     iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs
-    -- Word in output
-    iMULTI_FIFO_RE  : in std_logic;            --!Read request
-    oMULTI_FIFO     : out tMultiAdcFifoOut     --!Output data, empty and full FIFO
+    --!Word in output
+    iMULTI_FIFO_RE  : in  std_logic;            --!Read request
+    oMULTI_FIFO     : out tMultiAdcFifoOut      --!Output data, empty and full FIFO
     );
 end ADC_INT_driver;
 
@@ -51,7 +51,7 @@ architecture Behavior of ADC_INT_driver is
   type tAdcStatus is (IDLE, ADC_RST, ADC_CONV, SER_SHIFT, SER_LOAD, SER_SEND);
   signal sAdcState : tAdcStatus;
 
-  --FSM counter
+  --!FSM counter
   signal sHoldCounter       : std_logic_vector(15 downto 0);  --!Signals duration
   signal sDelayCounter      : std_logic_vector(15 downto 0);  --!Delay between signals
   signal sAdcCounter        : std_logic_vector(4 downto 0);   --!ADC select
@@ -64,6 +64,7 @@ architecture Behavior of ADC_INT_driver is
   
   --!ASTRA output signal interface
   signal sSerDataSynch      : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Input data from serializer bit stream, synchronized
+  signal sClkRetSynch       : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Return clock from ASTRA
   signal sClkRetSynchR      : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Rising edge of return clock from ASTRA
   signal sClkRetSynchF      : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Falling edge of return clock from ASTRA
   signal sSerSendRetSynch   : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Return SER_SEND from ASTRA, synchronized
@@ -94,16 +95,16 @@ begin
 		);
     
   --!PLL with "auto-reset" ON (automatically self-resets the PLL on loss of lock)
-	-- generate_fast_clock_1 : pll
-	-- port map(
-    -- refclk   =>	iCLK,
-    -- rst      =>	sFreqDivRst,
-		-- outclk_0 =>	open,     --!Fast clock (25 MHz)
-    -- outclk_1 =>	open,     --!FSM clock (50 MHz)
-    -- outclk_2 =>	open,     --!Receiver clock (100 MHz)
-    -- outclk_3 =>	open,
-		-- locked   =>  open	
-		-- );
+	generate_fast_clock_1 : pll
+	port map(
+    refclk   =>	iCLK,
+    rst      =>	sFreqDivRst,
+		outclk_0 =>	open,     --!Fast clock (25 MHz)
+    outclk_1 =>	open,     --!FSM clock (50 MHz)
+    outclk_2 =>	open,     --!Receiver clock (100 MHz)
+    outclk_3 =>	open,     --!(200 MHz)
+		locked   => open	
+		);
     
   --- Transmitter Commands to ASTRA ------------------------------------------------
   ADC_FSM_proc : process (iCLK)
@@ -115,7 +116,7 @@ begin
         sDelayCounter   <= (others => '0');
         sAdcCounter     <= (others => '0');
         sAdcState       <= IDLE;
-        oFLAG			<= ('0', '0', '1', '0');	  --!reset FLAG = '1'
+        oFLAG			      <= ('0', '0', '1', '0');	  --!reset FLAG = '1'
         oRST_DIG        <= '0';
         oADC_CONV       <= '0';
         oMULTI_ADC.SerShClk   <= '0';
@@ -124,7 +125,7 @@ begin
       elsif (iCTRL.en = '1') then
         --!default values, to be overwritten when necessary
         sFreqDivRst     <= '0';
-        oFLAG			<= ('1', '0', '0', '0');	  --!busy FLAG = '1'
+        oFLAG			      <= ('1', '0', '0', '0');	  --!busy FLAG = '1'
         case (sAdcState) is
           
           --!Wait for new acquisition
@@ -142,7 +143,7 @@ begin
           --!Reset to set all the digital logic in the correct condition
           when ADC_RST =>
             if (sFastClockR = '1') then
-              sAdcState     <= ADC_RST;
+              sAdcState       <= ADC_RST;
               if (sHoldCounter < 2) then
                 sHoldCounter  <= sHoldCounter + 1;
                 oRST_DIG      <= '1';
@@ -180,7 +181,7 @@ begin
           --!Propagates the channel pointer to enable the readout of the digitized information
           when SER_SHIFT =>
             if (sFastClockR = '1') then
-              sAdcState     <= SER_SHIFT;
+              sAdcState       <= SER_SHIFT;
               if (sHoldCounter < 2) then
                 sHoldCounter    <= sHoldCounter + 1;
                 oMULTI_ADC.SerShClk     <= '1'; 
@@ -259,18 +260,81 @@ begin
   --!Combinatorial assignments
   sClkRx <= iCLK;
   
+  --!I/O synchronization and buffering
+  SYNCH_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
+    --!Return Clock from TFH
+    CLOCK_RET_SYNCH : sync_edge
+      generic map (
+        pSTAGES => 2
+        )
+      port map (
+        iCLK      => sClkRx,
+        iRST      => '0',
+        iD        => iMULTI_ADC(i).ClkRet,
+        oQ        => sClkRetSynch(i),
+        oEDGE_R   => sClkRetSynchR(i),
+        oEDGE_F   => sClkRetSynchF(i)
+        );
+    --!Return SER_SEND from TFH
+    SER_SEND_RET_SYNCH : sync_stage
+      generic map (
+        pSTAGES => 2
+        )
+      port map (
+        iCLK  => sClkRx,
+        iRST  => '0',
+        iD    => iMULTI_ADC(i).SerSendRet,
+        oQ    => sSerSendRetSynch(i)
+        );
+    --!ADC Data from serializer
+    SER_DATA_SYNCH : sync_stage
+      generic map (
+        pSTAGES => 2
+        )
+      port map (
+        iCLK  => sClkRx,
+        iRST  => '0',
+        iD    => iMULTI_ADC(i).SerData,
+        oQ    => sSerDataSynch(i)
+        );
+  end generate SYNCH_GENERATE;
+  
+  --!Generate multiple Shift-registers to sample the ADCs
+  SR_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
+    --!Combinatorial assignments
+    sMultiSr(i).en    <= sClkRetSynchR(i) or sClkRetSynchF(i) when (sSerSendRetSynch(i) = '1') else
+                         '0';
+
+    --!Shift register to sample and deserialize the single ADC output
+    SAMPLER : shift_register
+      generic map(
+        pWIDTH => cADC_DATA_WIDTH,
+        pDIR   => "LEFT"                  --"RIGHT"
+        )
+      port map(
+        iCLK      => sClkRx,
+        iRST      => iRST,
+        iEN       => sMultiSr(i).en,
+        iLOAD     => '0',
+        iSHIFT    => sSerDataSynch(i),
+        iDATA     => (others => '0'),
+        oSER_DATA => open,
+        oPAR_DATA => sFifoIn(i).data
+        );
+  end generate SR_GENERATE;
+  
+  --!Generate multiple FIFO to synchronize data with ASTRA main clock
   FIFO_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
     WRITE_WORD : edge_detector
     port map(
       iCLK      => sClkRx,
       iRST      => '0',
-      iD        => sSerDataSynch(i),
+      iD        => sSerSendRetSynch(i),
       oQ        => open,
       oEDGE_R   => open,
       oEDGE_F   => sFifoIn(i).wr
     ); 
 
-    --!FIFO buffer to collect data from the ADC
     --!Full and aFull flags are not used, the FIFO is supposed to be empty
     ADC_FIFO : parametric_fifo_dp
       generic map(
@@ -299,67 +363,6 @@ begin
         oQ        => oMULTI_FIFO(i).q
         );        
   end generate FIFO_GENERATE;
-  
-  --!Generate multiple Shift-registers to sample the ADCs
-  SR_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
-    --!Combinatorial assignments
-    sMultiSr(i).en    <= sClkRetSynchR(i) or sClkRetSynchF(i) when (sSerSendRetSynch(i) = '1') else
-                         '0';
-    sMultiSr(i).serIn <= sSerDataSynch(i);
-
-    --!Shift register to sample and deserialize the single ADC output
-    SAMPLER : shift_register
-      generic map(
-        pWIDTH => cADC_DATA_WIDTH,
-        pDIR   => "LEFT"                  --"RIGHT"
-        )
-      port map(
-        iCLK      => sClkRx,
-        iRST      => iRST,
-        iEN       => sMultiSr(i).en,
-        iLOAD     => '0',
-        iSHIFT    => sMultiSr(i).serIn,
-        iDATA     => (others => '0'),
-        oSER_DATA => open,
-        oPAR_DATA => sMultiSr(i).parOut
-        );
-  end generate SR_GENERATE;
-  
-  --!I/O synchronization and buffering
-  SYNCH_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
-    SER_DATA_SYNCH : sync_stage
-      generic map (
-        pSTAGES => 2
-        )
-      port map (
-        iCLK  => sClkRx,
-        iRST  => '0',
-        iD    => iMULTI_ADC(i).SerData,
-        oQ    => sSerDataSynch(i)
-        );
-    CLOCK_RET_SYNCH : sync_edge
-      generic map (
-        pSTAGES => 2
-        )
-      port map (
-        iCLK      => sClkRx,
-        iRST      => '0',
-        iD        => iMULTI_ADC(i).ClkRet,
-        oQ        => open,
-        oEDGE_R   => sClkRetSynchR(i),
-        oEDGE_F   => sClkRetSynchF(i)
-        );
-    SER_SEND_RET_SYNCH : sync_stage
-      generic map (
-        pSTAGES => 2
-        )
-      port map (
-        iCLK  => sClkRx,
-        iRST  => '0',
-        iD    => iMULTI_ADC(i).SerSendRet,
-        oQ    => sSerSendRetSynch(i)
-        );
-  end generate SYNCH_GENERATE;
   
   
 end Behavior;
