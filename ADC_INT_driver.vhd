@@ -16,7 +16,6 @@ use IEEE.STD_LOGIC_UNSIGNED.all;
 use IEEE.NUMERIC_STD.all;
 use work.basic_package.all;
 use work.ASTRApackage.all;
-use work.user_package.all;
 
 
 --!@copydoc ADC_INT_driver.vhd
