@@ -354,7 +354,7 @@ begin
         oFULL_W   => open,
         oUSEDW_W  => open,
         iWR_REQ   => sFifoIn(i).wr,
-        iDATA     => sMultiSr(i).parOut,
+        iDATA     => sFifoIn(i).data,
         --Read ports
         oEMPTY_R  => oMULTI_FIFO(i).empty,
         oFULL_R   => oMULTI_FIFO(i).full,
