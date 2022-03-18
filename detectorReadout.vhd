@@ -22,31 +22,33 @@ entity detectorReadout is
     pACTIVE_EDGE : string := "F"        --!"F": falling, "R": rising
     );
   port (
-    iCLK              : in  std_logic;      --!Main clock
-    iRST              : in  std_logic;      --!Main reset
+    iCLK                : in  std_logic;      --!Main clock
+    iRST                : in  std_logic;      --!Main reset
     -- control interface
-    oCNT              : out tControlIntfOut;     --!Control signals in output
-    iCNT              : in  tControlIntfIn;      --!Control signals in input
-    iFE_CLK_DIV       : in  std_logic_vector(15 downto 0);  --!FE SlowClock divider
-    iFE_CLK_DUTY      : in  std_logic_vector(15 downto 0);  --!FE SlowClock duty cycle
-    iADC_CLK_DIV      : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
-    iADC_CLK_DUTY     : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
-    iADC_DELAY        : in  std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
-    iFAST_FREQ_DIV    :
-    iFAST_DC          :
-    iFAST_CONV_TIME   :
+    oCNT                : out tControlIntfOut;     --!Control signals in output
+    iCNT                : in  tControlIntfIn;      --!Control signals in input
+    iEXT_INT_ADC        : in  std_logic;           --!External/Internal ADC select - 0=EXT, 1=INT
+    -- parameters
+    iFE_CLK_DIV         : in  std_logic_vector(15 downto 0);  --!FE SlowClock divider
+    iFE_CLK_DUTY        : in  std_logic_vector(15 downto 0);  --!FE SlowClock duty cycle
+    iADC_CLK_DIV        : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
+    iADC_CLK_DUTY       : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
+    iADC_DELAY          : in  std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
+    iADC_INT_CLK_DIV    : in  std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
+    iADC_INT_CLK_DUTY   : in  std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
+    iADC_INT_CONV_TIME  : in  std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
     -- ASTRA interface
-    oFE               : out tFpga2FeIntf;   --!Output signals to ASTRA
-    iFE               : in  tFe2FpgaIntf;   --!Input signals from ASTRA
+    oFE                 : out tFpga2FeIntf;   --!Output signals to ASTRA
+    iFE                 : in  tFe2FpgaIntf;   --!Input signals from ASTRA
     -- External ADCs interface
-    oADC              : out tFpga2AdcIntf;  --!Signals from FPGA to ext-ADCs
-    iMULTI_ADC        : in  tMultiAdc2FpgaIntf;  --!Signals from ext-ADCs to FPGA
+    oADC                : out tFpga2AdcIntf;       --!Signals from FPGA to ext-ADCs
+    iMULTI_ADC          : in  tMultiAdc2FpgaIntf;  --!Signals from ext-ADCs to FPGA
     -- Internal ADCs interface
-    oFAST_CLK         :
-    oFAST_RST_DIG     :
-    oFAST_ADC_CONV    :
-    iFAST_MULTI_ADC   :
-    oFAST_MULTI_ADC   :
+    oADC_INT_FAST_CLK   : out std_logic;            --!Input of ADC fast clock (25-100 MHz)
+    oADC_INT_RST_DIG    : out std_logic;            --!Reset of the ADC, counter and serializer
+    oADC_INT_ADC_CONV   : out std_logic;            --!Digital pulse to start the conversion of the ADC
+    oMULTI_ADC_INT      : out tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
+    iMULTI_ADC_INT      : out tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     -- Collector FIFO interface
     oMULTI_FIFO   : out tMultiAdcFifoOut;    --!Collector FIFO, output interface
     iMULTI_FIFO   : in  tMultiAdcFifoIn      --!Collector FIFO, input  interface    
@@ -74,6 +76,12 @@ architecture std of detectorReadout is
   signal sAdcICnt     : tControlIntfIn;
   signal sAdcOFifo    : tMultiAdcFifoIn;
   signal sAdcIntStart : std_logic;
+  
+  signal sAdcIntICnt        : tControlIntfIn;
+  signal sAdcIntOFlag       : tControlIntfOut;
+  signal sAdcIntIRe         : std_logic_vector (cTOTAL_ADCS-1 downto 0);
+  signal sAdcIntIWe         : std_logic_vector (cTOTAL_ADCS-1 downto 0);
+  signal sAdcIntOMultiFifo  : tMultiAdcFifoOut;
 
   -- Clock dividers
   signal sFeCdRis, sFeCdFal   : std_logic;
@@ -149,6 +157,22 @@ begin
     oBUSY  => open,
     oOUT   => sAdcICnt.start
   );
+  
+  --!Generate multiple delay_timer to write the collector FIFO (when using internal ADC)
+  COLLECTOR_FIFO_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
+    --!Combinatorial assignments
+    sAdcIntIRe(i) <= not sAdcIntOMultiFifo(i).empty;
+    --!@brief Write request of collector FIFO
+    ADC_start_delay : delay_timer
+    port map (
+      iCLK   => iCLK,
+      iRST   => iRST,
+      iSTART => sAdcIntIRe(i),
+      iDELAY => x"0001",
+      oBUSY  => open,
+      oOUT   => sAdcIntIWe(i)
+    );
+  end generate COLLECTOR_FIFO_GENERATE;
   ------------------------------------------------------------------------------
 
   sFeRst <= '1' when (sHpState = RESET) else
@@ -184,25 +208,27 @@ begin
   port map (
     iCLK            => iCLK,
     iRST            => iRST,
-    iCTRL           => --sAdcIntCnt,
-    oFLAG				    => --sAdcIntFlag,
-    iFAST_FREQ_DIV  => iFAST_FREQ_DIV
-    iFAST_DC        => iFAST_DC
-    iCONV_TIME      => iFAST_CONV_TIME
-    oFAST_CLK       => oFAST_CLK
-    oRST_DIG        => oFAST_RST_DIG
-    oADC_CONV       => oFAST_ADC_CONV
-    iMULTI_ADC      => iFAST_MULTI_ADC
-    oMULTI_ADC      => oFAST_MULTI_ADC
-    iMULTI_FIFO_RE  => --sAdcIntRe
-    oMULTI_FIFO     => --sAdcIntOMultiFifo
+    iCTRL           => sAdcIntICnt,
+    oFLAG				    => sAdcIntOFlag,
+    iFAST_FREQ_DIV  => iADC_INT_CLK_DIV,
+    iFAST_DC        => iADC_INT_CLK_DUTY,
+    iCONV_TIME      => iADC_INT_CONV_TIME,
+    oFAST_CLK       => oADC_INT_FAST_CLK,
+    oRST_DIG        => oADC_INT_RST_DIG,
+    oADC_CONV       => oADC_INT_ADC_CONV,
+    iMULTI_ADC      => oMULTI_ADC_INT,
+    oMULTI_ADC      => iMULTI_ADC_INT,
+    iMULTI_FIFO_RE  => sAdcIntIRe,
+    oMULTI_FIFO     => sAdcIntOMultiFifo
     );
 
   --!@brief Generate multiple FIFOs to sample the ADCs
   FIFO_GENERATE : for i in 0 to cTOTAL_ADCS-1 generate
-    sFifoIn(i).data <= sAdcOFifo(i).data;
-    sFifoIn(i).wr   <= sAdcOFifo(i).wr;
-    sFifoIn(i).rd   <= iMULTI_FIFO(i).rd;
+    sFifoIn(i).data <=  sAdcIntOMultiFifo(i).q when iEXT_INT_ADC = '1' else
+                        sAdcOFifo(i).data;
+    sFifoIn(i).wr   <=  sAdcIntIWe(i) when iEXT_INT_ADC = '1' else
+                        wsAdcOFifo(i).wr;
+    sFifoIn(i).rd   <=  iMULTI_FIFO(i).rd;
 
     --!@brief FIFO buffer to collect data from the ADC
     --!@brief full and aFull flags are not used, the FIFO is supposed to be ready
@@ -236,82 +262,105 @@ begin
   HP_synch_signals_proc : process (iCLK)
   begin
     if (rising_edge(iCLK)) then
-      if (sHpState = RESET or sHpState = WAIT_RESET) then
-        sFeICnt.en  <= '0';
-        sAdcICnt.en <= '0';
-      else
-        sFeICnt.en  <= '1';
-        sAdcICnt.en <= '1';
-      end if;
-
-      if (sHpState = START_READOUT) then
-        sFeICnt.start <= '1';
-      else
-        sFeICnt.start <= '0';
-      end if;
-
-      if (sHpState = RESET or sHpState = IDLE) then
-        sFeSlwRst <= '1';
-      else
-        sFeSlwRst <= '0';
-      end if;
-
-      if (sHpState /= IDLE and sHpState /= RESET) then
-        sFeSlwEn <= '1';
-      else
-        sFeSlwEn <= '0';
-      end if;
-
-      if (sHpState = START_EXTADC_RO) then
-        sAdcIntStart <= '1';
-      else
-        sAdcIntStart <= '0';
-      end if;
-
-      if (sHpState = RESET or sAdcOCnt.compl = '1') then
-        sAdcSlwRst <= '1';
-      else
-        sAdcSlwRst <= '0';
-      end if;
-
-      if (sHpState = WAIT_RESET or sAdcICnt.start = '1' or sAdcOCnt.busy = '1') then
-        sAdcSlwEn <= '1';
-      else
-        sAdcSlwEn <= '0';
-      end if;
-
-      if (sHpState = IDLE) then
-        sStickyCompl <= (others => '0');
-      else
-        if (sFeOCnt.compl = '1') then
-          sStickyCompl(0) <= '1';
+      if (iEXT_INT_ADC = '1') then
+        --!default values, to be overwritten when necessary
+        sFeICnt.en    <= '0';
+        sAdcICnt.en   <= '0';
+        sCntOut       <= sAdcIntOFlag;
+        
+        if (sHpState = RESET or sHpState = WAIT_RESET) then
+          sAdcIntICnt.en  <= '0';
+        else
+          sAdcIntICnt.en  <= '1';
         end if;
-        if (sStickyCompl(0) = '1' and sAdcOCnt.compl = '1') then
-          sStickyCompl(1) <= '1';
+        
+        if (sHpState = START_READOUT) then
+          sAdcIntICnt.start <= '1';
+        else
+          sAdcIntICnt.start <= '0';
         end if;
-      end if;
-
-      if (sHpState /= IDLE) then
-        sCntOut.busy <= '1';
       else
-        sCntOut.busy <= '0';
+        --!default values, to be overwritten when necessary
+        sAdcIntICnt.en    <= '0';
+        sAdcIntICnt.start <= '0'; 
+        
+        if (sHpState = RESET or sHpState = WAIT_RESET) then
+          sFeICnt.en  <= '0';
+          sAdcICnt.en <= '0';
+        else
+          sFeICnt.en  <= '1';
+          sAdcICnt.en <= '1';
+        end if;       
+
+        if (sHpState = START_READOUT) then
+          sFeICnt.start <= '1';
+        else
+          sFeICnt.start <= '0';
+        end if;
+        
+        if (sHpState = RESET or sHpState = IDLE) then
+          sFeSlwRst <= '1';
+        else
+          sFeSlwRst <= '0';
+        end if;
+
+        if (sHpState /= IDLE and sHpState /= RESET) then
+          sFeSlwEn <= '1';
+        else
+          sFeSlwEn <= '0';
+        end if;
+
+        if (sHpState = START_EXTADC_RO) then
+          sAdcIntStart <= '1';
+        else
+          sAdcIntStart <= '0';
+        end if;
+
+        if (sHpState = RESET or sAdcOCnt.compl = '1') then
+          sAdcSlwRst <= '1';
+        else
+          sAdcSlwRst <= '0';
+        end if;
+
+        if (sHpState = WAIT_RESET or sAdcICnt.start = '1' or sAdcOCnt.busy = '1') then
+          sAdcSlwEn <= '1';
+        else
+          sAdcSlwEn <= '0';
+        end if;
+
+        if (sHpState = IDLE) then
+          sStickyCompl <= (others => '0');
+        else
+          if (sFeOCnt.compl = '1') then
+            sStickyCompl(0) <= '1';
+          end if;
+          if (sStickyCompl(0) = '1' and sAdcOCnt.compl = '1') then
+            sStickyCompl(1) <= '1';
+          end if;
+        end if;
+
+        if (sHpState /= IDLE) then
+          sCntOut.busy <= '1';
+        else
+          sCntOut.busy <= '0';
+        end if;
+
+        if (sHpState = RESET or sHpState = WAIT_RESET) then
+          sCntOut.reset <= '1';
+        else
+          sCntOut.reset <= '0';
+        end if;
+
+        if (sHpState = END_READOUT) then
+          sCntOut.compl <= '1';
+        else
+          sCntOut.compl <= '0';
+        end if;
+
+        --!@todo How do I check the "when others" statement?
+        sCntOut.error <= '0';
+      
       end if;
-
-      if (sHpState = RESET or sHpState = WAIT_RESET) then
-        sCntOut.reset <= '1';
-      else
-        sCntOut.reset <= '0';
-      end if;
-
-      if (sHpState = END_READOUT) then
-        sCntOut.compl <= '1';
-      else
-        sCntOut.compl <= '0';
-      end if;
-
-      --!@todo How do I check the "when others" statement?
-      sCntOut.error <= '0';
-
     end if;
   end process HP_synch_signals_proc;
 
