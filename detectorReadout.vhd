@@ -22,26 +22,34 @@ entity detectorReadout is
     pACTIVE_EDGE : string := "F"        --!"F": falling, "R": rising
     );
   port (
-    iCLK          : in  std_logic;      --!Main clock
-    iRST          : in  std_logic;      --!Main reset
+    iCLK              : in  std_logic;      --!Main clock
+    iRST              : in  std_logic;      --!Main reset
     -- control interface
-    oCNT          : out tControlIntfOut;     --!Control signals in output
-    iCNT          : in  tControlIntfIn;      --!Control signals in input
-    iFE_CLK_DIV   : in  std_logic_vector(15 downto 0);  --!FE SlowClock divider
-    iFE_CLK_DUTY  : in  std_logic_vector(15 downto 0);  --!FE SlowClock duty cycle
-    iADC_CLK_DIV  : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
-    iADC_CLK_DUTY : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
-    iADC_DELAY    : in  std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
+    oCNT              : out tControlIntfOut;     --!Control signals in output
+    iCNT              : in  tControlIntfIn;      --!Control signals in input
+    iFE_CLK_DIV       : in  std_logic_vector(15 downto 0);  --!FE SlowClock divider
+    iFE_CLK_DUTY      : in  std_logic_vector(15 downto 0);  --!FE SlowClock duty cycle
+    iADC_CLK_DIV      : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
+    iADC_CLK_DUTY     : in  std_logic_vector(15 downto 0);  --!ADC SlowClock divider
+    iADC_DELAY        : in  std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
+    iFAST_FREQ_DIV    :
+    iFAST_DC          :
+    iFAST_CONV_TIME   :
     -- ASTRA interface
-    oFE           : out tFpga2FeIntf;   --!Output signals to ASTRA
-    iFE           : in  tFe2FpgaIntf;   --!Input signals from ASTRA
+    oFE               : out tFpga2FeIntf;   --!Output signals to ASTRA
+    iFE               : in  tFe2FpgaIntf;   --!Input signals from ASTRA
     -- External ADCs interface
-    oADC          : out tFpga2AdcIntf;  --!Signals from FPGA to ext-ADCs
-    iMULTI_ADC    : in  tMultiAdc2FpgaIntf;  --!Signals from ext-ADCs to FPGA
+    oADC              : out tFpga2AdcIntf;  --!Signals from FPGA to ext-ADCs
+    iMULTI_ADC        : in  tMultiAdc2FpgaIntf;  --!Signals from ext-ADCs to FPGA
     -- Internal ADCs interface
+    oFAST_CLK         :
+    oFAST_RST_DIG     :
+    oFAST_ADC_CONV    :
+    iFAST_MULTI_ADC   :
+    oFAST_MULTI_ADC   :
     -- Collector FIFO interface
     oMULTI_FIFO   : out tMultiAdcFifoOut;    --!Collector FIFO, output interface
-    iMULTI_FIFO   : in  tMultiAdcFifoIn      --!Collector FIFO, input  interface
+    iMULTI_FIFO   : in  tMultiAdcFifoIn      --!Collector FIFO, input  interface    
     );
 end detectorReadout;
 
@@ -170,6 +178,25 @@ begin
       iMULTI_ADC  => iMULTI_ADC,
       oMULTI_FIFO => sAdcOFifo
       );
+  
+  --!@brief Internal ASTRA ADCs interface
+  ADCs_INT : ADC_INT_driver
+  port map (
+    iCLK            => iCLK,
+    iRST            => iRST,
+    iCTRL           => --sAdcIntCnt,
+    oFLAG				    => --sAdcIntFlag,
+    iFAST_FREQ_DIV  => iFAST_FREQ_DIV
+    iFAST_DC        => iFAST_DC
+    iCONV_TIME      => iFAST_CONV_TIME
+    oFAST_CLK       => oFAST_CLK
+    oRST_DIG        => oFAST_RST_DIG
+    oADC_CONV       => oFAST_ADC_CONV
+    iMULTI_ADC      => iFAST_MULTI_ADC
+    oMULTI_ADC      => oFAST_MULTI_ADC
+    iMULTI_FIFO_RE  => --sAdcIntRe
+    oMULTI_FIFO     => --sAdcIntOMultiFifo
+    );
 
   --!@brief Generate multiple FIFOs to sample the ADCs
   FIFO_GENERATE : for i in 0 to cTOTAL_ADCS-1 generate

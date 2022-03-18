@@ -280,6 +280,31 @@ package ASTRApackage is
       locked   : out std_logic          -- locked.export
     );
   end component;
+  
+  --!@brief Internal ASTRA ADCs interface
+component ADC_INT_driver is
+  port(
+    --!FSM Main Command
+    iCLK            : in  std_logic;        --!Clock
+    iRST            : in  std_logic;        --!Reset
+    iCTRL           : in  tControlIntfIn;   --!Control (enable, start, slow clock, slow enable)
+    oFLAG				    : out tControlIntfOut;  --!Flag (busy, error, resetting, completetion)
+    --!registerArray Interface
+    iFAST_FREQ_DIV  : in std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
+    iFAST_DC        : in std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
+    iCONV_TIME      : in std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
+    --!ADC Main Commands
+    oFAST_CLK       : out std_logic;     --!Input of ADC fast clock (25-100 MHz)
+    oRST_DIG        : out std_logic;     --!Reset of the ADC, counter and serializer
+    oADC_CONV       : out std_logic;     --!Digital pulse to start the conversion of the ADC
+    --!Serializer Command/Data
+    iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
+    oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs
+    --!Word in output
+    iMULTI_FIFO_RE  : in  std_logic_vector (cTOTAL_ADCS-1 downto 0);   --!Read request
+    oMULTI_FIFO     : out tMultiAdcFifoOut      --!Output data, empty and full FIFO
+    );
+end component;
  
  
 
