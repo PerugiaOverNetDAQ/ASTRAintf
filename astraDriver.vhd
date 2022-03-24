@@ -15,15 +15,18 @@ use work.ASTRApackage.all;
 --!@copydoc astraDriver.vhd
 entity astraDriver is
   port (
-    iCLK      : in  std_logic;          --!Main clock
-    iRST      : in  std_logic;          --!Main reset
+    iCLK            : in  std_logic;          --!Main clock
+    iRST            : in  std_logic;          --!Main reset
     -- control interface
-    oCNT      : out tControlIntfOut;    --!Control signals in output
-    iCNT      : in  tControlIntfIn;     --!Control signals in input
-    oDATA_VLD : out std_logic;          --!Flags data available at ADC input
+    oCNT            : out tControlIntfOut;    --!Control signals in output
+    iCNT            : in  tControlIntfIn;     --!Control signals in input
+    oDATA_VLD       : out std_logic;          --!Flags data available at ADC input
+    iADC_INT_EXT_b  : in  std_logic;          --!External/Internal ADC select --> 0=EXT, 1=INT
+    -- ADC_INT_driver interface
+    iACQSTN_COMPL   : in std_logic;           --!Internal ADC acquisition complete
     -- ASTRA interface
-    oFE       : out tFpga2FeIntf;       --!Signals from the FPGA to ASTRA
-    iFE       : in  tFe2FpgaIntf        --!Signals from ASTRA to the FPGA
+    oFE             : out tFpga2FeIntf;       --!Signals from the FPGA to ASTRA
+    iFE             : in  tFe2FpgaIntf        --!Signals from ASTRA to the FPGA
     );
 end astraDriver;
 
@@ -101,54 +104,90 @@ begin
   FE_synch_signals_proc : process (iCLK)
   begin
     if (rising_edge(iCLK)) then
-      if (sFeState = HOLD or sFeState = READ_RESET
-          or sFeState = CLOCK_FORWARD or sFeState = SYNCH_END) then
-        sFpga2Fe.hold_b <= '0';
-      else
-        sFpga2Fe.hold_b <= '1';
-      end if;
-
-      if (sFeState = READ_RESET or sFeState = CLOCK_FORWARD
-          or sFeState = SYNCH_END) then
-        sFpga2Fe.readRst <= '1';
-      else
-        sFpga2Fe.readRst <= '0';
-      end if;
-
-      if (sFeState = CLOCK_FORWARD or sFeState = SYNCH_END 
-          or sFeState = HOLD or sFeState = READ_RESET) then
-        sFpga2Fe.shiftClk <= sCntIn.slwClk;
-      else
+      if (iADC_INT_EXT_b = '1') then
+        --!default values, to be overwritten when necessary
+        oDATA_VLD         <= '0';
+        sFpga2Fe.readRst  <= '0';        
         sFpga2Fe.shiftClk <= '0';
+        sFpga2Fe.test     <= '0';
+        
+        if (sNextFeState = RESET) then
+          sCntOut.reset <= '1';
+        else
+          sCntOut.reset <= '0';
+        end if;
+        
+        if (sNextFeState /= IDLE) then
+          sCntOut.busy <= '1';
+        else
+          sCntOut.busy <= '0';
+        end if;
+        
+        if (sFeState = HOLD) then
+          sFpga2Fe.hold_b <= '0';
+        else
+          sFpga2Fe.hold_b <= '1';
+        end if;      
+
+        if (sNextFeState = COMPLETE) then
+          sCntOut.compl <= '1';
+        else
+          sCntOut.compl <= '0';
+        end if;
+        
+        --!@todo How do I check the "when others" statement?
+        sCntOut.error <= '0';        
+        
+      else   
+      
+        if (sFeState = HOLD or sFeState = READ_RESET
+            or sFeState = CLOCK_FORWARD or sFeState = SYNCH_END) then
+          sFpga2Fe.hold_b <= '0';
+        else
+          sFpga2Fe.hold_b <= '1';
+        end if;
+
+        if (sFeState = READ_RESET or sFeState = CLOCK_FORWARD
+            or sFeState = SYNCH_END) then
+          sFpga2Fe.readRst <= '1';
+        else
+          sFpga2Fe.readRst <= '0';
+        end if;
+
+        if (sFeState = CLOCK_FORWARD or sFeState = SYNCH_END 
+            or sFeState = HOLD or sFeState = READ_RESET) then
+          sFpga2Fe.shiftClk <= sCntIn.slwClk;
+        else
+          sFpga2Fe.shiftClk <= '0';
+        end if;
+
+        if (sNextFeState /= IDLE) then
+          sCntOut.busy <= '1';
+        else
+          sCntOut.busy <= '0';
+        end if;
+
+        if (sNextFeState = RESET) then
+          sCntOut.reset <= '1';
+        else
+          sCntOut.reset <= '0';
+        end if;
+
+        --!@todo How do I check the "when others" statement?
+        sCntOut.error <= '0';
+
+        if (sNextFeState = COMPLETE) then
+          sCntOut.compl <= '1';
+        else
+          sCntOut.compl <= '0';
+        end if;
+
+        if (sNextFeState = CLOCK_FORWARD or sNextFeState = SYNCH_END) then
+          oDATA_VLD <= '1';
+        else
+          oDATA_VLD <= '0';
+        end if;
       end if;
-
-      if (sNextFeState /= IDLE) then
-        sCntOut.busy <= '1';
-      else
-        sCntOut.busy <= '0';
-      end if;
-
-      if (sNextFeState = RESET) then
-        sCntOut.reset <= '1';
-      else
-        sCntOut.reset <= '0';
-      end if;
-
-      --!@todo How do I check the "when others" statement?
-      sCntOut.error <= '0';
-
-      if (sNextFeState = COMPLETE) then
-        sCntOut.compl <= '1';
-      else
-        sCntOut.compl <= '0';
-      end if;
-
-      if (sNextFeState = CLOCK_FORWARD or sNextFeState = SYNCH_END) then
-        oDATA_VLD <= '1';
-      else
-        oDATA_VLD <= '0';
-      end if;
-
     end if;
   end process FE_synch_signals_proc;
 
@@ -240,7 +279,8 @@ begin
   --! @param[in] sChCount.count Output of the delay counter
   --! @return sNextFeState  Next state of the FSM
   FSM_FE_proc : process (sFeState, sCntIn, sChCount.count,
-                         sDcCount.count, sS2cCount.count)
+                         sDcCount.count, sS2cCount.count,
+                         iADC_INT_EXT_b, iACQSTN_COMPL)
   begin
     case (sFeState) is
       --Reset the FSM
@@ -249,10 +289,18 @@ begin
 
       --Wait for the START signal to be asserted
       when IDLE =>
-        if (sCntIn.en = '1' and sCntIn.start = '1') then
-          sNextFeState <= SYNCH_START;
-        else
-          sNextFeState <= IDLE;
+        if (iADC_INT_EXT_b = '1') then
+          if (sCntIn.en = '1' and sCntIn.start = '1') then
+            sNextFeState <= HOLD;
+          else
+            sNextFeState <= IDLE;
+          end if;
+        else        
+          if (sCntIn.en = '1' and sCntIn.start = '1') then
+            sNextFeState <= SYNCH_START;
+          else
+            sNextFeState <= IDLE;
+          end if;
         end if;
 
       --Wait for the slow-clock enable before starting
@@ -261,7 +309,15 @@ begin
 
       --Assert the HOLD signal
       when HOLD =>
-        sNextFeState <= wait4en(sCntIn.slwEn, HOLD, READ_RESET);
+        if (iADC_INT_EXT_b = '1') then
+          if (iACQSTN_COMPL = '1') then
+            sNextFeState <= COMPLETE;
+          else
+            sNextFeState <= HOLD;
+          end if;
+        else
+          sNextFeState <= wait4en(sCntIn.slwEn, HOLD, READ_RESET);
+        end if;
 
       --Assert the readRst signal without forwarding clock
       when READ_RESET =>
