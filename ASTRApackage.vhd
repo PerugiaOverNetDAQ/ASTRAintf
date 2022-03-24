@@ -73,6 +73,8 @@ package ASTRApackage is
   
   --!ASTRA ADC input signals (from the FPGA)
   type tFpga2AstraAdc is record
+    RstDig    : std_logic;     --!Reset of the ADC, counter and serializer
+    AdcConv   : std_logic;     --!Digital pulse to start the conversion of the ADC
     SerShClk  : std_logic;     --!Shift clock (1-10 MHz) to read the channels ADC data
     SerLoad   : std_logic;     --!Digital pulse to enable the serializer to load data
     SerSend   : std_logic;     --!Digital pulse to enable the serializer to output data
@@ -201,15 +203,18 @@ package ASTRApackage is
   component astraDriver is
     port (
       --# {{clocks|Clock}}
-      iCLK      : in  std_logic;
+      iCLK            : in  std_logic;
       --# {{control|Control}}
-      iRST      : in  std_logic;
-      oCNT      : out tControlIntfOut;
-      iCNT      : in  tControlIntfIn;
-      oDATA_VLD : out std_logic;
+      iRST            : in  std_logic;
+      oCNT            : out tControlIntfOut;
+      iCNT            : in  tControlIntfIn;
+      oDATA_VLD       : out std_logic;
+      iADC_INT_EXT_b  : in  std_logic;
+      --# {{acqCompl|acqCompl}}
+      iACQSTN_COMPL   : in std_logic;
       --# {{ASTRA interface}}
-      oFE       : out tFpga2FeIntf;
-      iFE       : in  tFe2FpgaIntf
+      oFE             : out tFpga2FeIntf;
+      iFE             : in  tFe2FpgaIntf
       );
   end component astraDriver;
 
@@ -220,26 +225,34 @@ package ASTRApackage is
     );
     port (
       --# {{clocks|Clock}}
-      iCLK          : in  std_logic;
+      iCLK                : in  std_logic;
+      iRST                : in  std_logic;
       --# {{control|Control}}
-      iRST          : in  std_logic;
-      oCNT          : out tControlIntfOut;
-      iCNT          : in  tControlIntfIn;
-      iFE_CLK_DIV   : in  std_logic_vector(15 downto 0);
-      iFE_CLK_DUTY  : in  std_logic_vector(15 downto 0);
-      iADC_CLK_DIV  : in  std_logic_vector(15 downto 0);
-      iADC_CLK_DUTY : in  std_logic_vector(15 downto 0);
-      iADC_DELAY    : in  std_logic_vector(15 downto 0);
+      oCNT                : out tControlIntfOut;
+      iCNT                : in  tControlIntfIn;
+      iADC_INT_EXT_b      : in  std_logic;
+      --# {{parameters}}
+      iFE_CLK_DIV         : in  std_logic_vector(15 downto 0);
+      iFE_CLK_DUTY        : in  std_logic_vector(15 downto 0);
+      iADC_CLK_DIV        : in  std_logic_vector(15 downto 0);
+      iADC_CLK_DUTY       : in  std_logic_vector(15 downto 0);
+      iADC_DELAY          : in  std_logic_vector(15 downto 0);
+      iADC_INT_CLK_DIV    : in  std_logic_vector(15 downto 0);
+      iADC_INT_CLK_DUTY   : in  std_logic_vector(15 downto 0);
+      iADC_INT_CONV_TIME  : in  std_logic_vector(15 downto 0);
       --# {{ASTRA interface}}
-      oFE           : out tFpga2FeIntf;
-      iFE           : in  tFe2FpgaIntf;
+      oFE                 : out tFpga2FeIntf;
+      iFE                 : in  tFe2FpgaIntf;
       --# {{External ADCs interface}}
-      oADC          : out tFpga2AdcIntf;
-      iMULTI_ADC    : in  tMultiAdc2FpgaIntf;
+      oADC                : out tFpga2AdcIntf;
+      iMULTI_ADC          : in  tMultiAdc2FpgaIntf;
       --# {{Internal ADCs interface}}
+      oADC_INT_FAST_CLK   : out std_logic;
+      oMULTI_ADC_INT      : out tFpga2AstraAdc;
+      iMULTI_ADC_INT      : in  tMultiAstraAdc2Fpga;
       --# {{Collector FIFO interface}}
-      oMULTI_FIFO   : out tMultiAdcFifoOut;
-      iMULTI_FIFO   : in  tMultiAdcFifoIn
+      oMULTI_FIFO         : out tMultiAdcFifoOut;
+      iMULTI_FIFO         : in  tMultiAdcFifoIn
     );
   end component;
 
@@ -293,10 +306,8 @@ component ADC_INT_driver is
     iFAST_FREQ_DIV  : in std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
     iFAST_DC        : in std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
     iCONV_TIME      : in std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
-    --!ADC Main Commands
+    --!Fast Clock
     oFAST_CLK       : out std_logic;     --!Input of ADC fast clock (25-100 MHz)
-    oRST_DIG        : out std_logic;     --!Reset of the ADC, counter and serializer
-    oADC_CONV       : out std_logic;     --!Digital pulse to start the conversion of the ADC
     --!Serializer Command/Data
     iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs

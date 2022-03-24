@@ -30,10 +30,8 @@ entity ADC_INT_driver is
     iFAST_FREQ_DIV  : in std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
     iFAST_DC        : in std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
     iCONV_TIME      : in std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
-    --!ADC Main Commands
+    --!Fast clock
     oFAST_CLK       : out std_logic;     --!Input of ADC fast clock (25-100 MHz)
-    oRST_DIG        : out std_logic;     --!Reset of the ADC, counter and serializer
-    oADC_CONV       : out std_logic;     --!Digital pulse to start the conversion of the ADC
     --!Serializer Command/Data
     iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs
@@ -116,8 +114,8 @@ begin
         sAdcCounter     <= (others => '0');
         sAdcState       <= IDLE;
         oFLAG			      <= ('0', '0', '1', '0');	  --!reset FLAG = '1'
-        oRST_DIG        <= '0';
-        oADC_CONV       <= '0';
+        oMULTI_ADC.RstDig     <= '0';
+        oMULTI_ADC.AdcConv    <= '0';
         oMULTI_ADC.SerShClk   <= '0';
         oMULTI_ADC.SerLoad    <= '0';
         oMULTI_ADC.SerSend    <= '0';        
@@ -130,42 +128,42 @@ begin
           --!Wait for new acquisition
           when IDLE =>
             if (iCTRL.start = '1') then
-              sHoldCounter  <= x"0001";
-              sAdcState     <= ADC_RST;
-              oRST_DIG      <= '1';
+              sHoldCounter        <= x"0001";
+              sAdcState           <= ADC_RST;
+              oMULTI_ADC.RstDig   <= '1';
             else
-              sFreqDivRst   <= '1';
-              sAdcState     <= IDLE;
-              oFLAG.busy		<= '0';
-              oRST_DIG      <= '0';
+              sFreqDivRst         <= '1';
+              sAdcState           <= IDLE;
+              oFLAG.busy		      <= '0';
+              oMULTI_ADC.RstDig   <= '0';
             end if;
           --!Reset to set all the digital logic in the correct condition
           when ADC_RST =>
             if (sFastClockR = '1') then
               sAdcState       <= ADC_RST;
               if (sHoldCounter < 2) then
-                sHoldCounter  <= sHoldCounter + 1;
-                oRST_DIG      <= '1';
+                sHoldCounter        <= sHoldCounter + 1;
+                oMULTI_ADC.RstDig   <= '1';
               else
-                oRST_DIG      <= '0'; 
+                oMULTI_ADC.RstDig <= '0'; 
                 if (sDelayCounter < 1) then
                   sDelayCounter   <= sDelayCounter + 1;
                 else
-                  sHoldCounter    <= x"0001";                   
-                  sDelayCounter   <= (others => '0');
-                  sAdcState       <= ADC_CONV;
-                  oADC_CONV       <= '1';
+                  sHoldCounter         <= x"0001";                   
+                  sDelayCounter        <= (others => '0');
+                  sAdcState            <= ADC_CONV;
+                  oMULTI_ADC.AdcConv   <= '1';
                 end if;
               end if;
             end if;            
           --!Start of the ADC conversion
           when ADC_CONV =>
             if (sHoldCounter < iCONV_TIME) then              
-              sHoldCounter  <= sHoldCounter + 1;
-              sAdcState     <= ADC_CONV;
-              oADC_CONV     <= '1';
+              sHoldCounter        <= sHoldCounter + 1;
+              sAdcState           <= ADC_CONV;
+              oMULTI_ADC.AdcConv  <= '1';
             else            
-              oADC_CONV     <= '0';
+              oMULTI_ADC.AdcConv  <= '0';
               if (sFastClockR = '1') then
                 if (sDelayCounter < 1) then
                     sDelayCounter   <= sDelayCounter + 1;

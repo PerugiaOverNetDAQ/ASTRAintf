@@ -5,6 +5,7 @@
 --!\n\n **Reset duration shall be no less than 2 clock cycles**
 --!
 --!@author Mattia Barbanera, mattia.barbanera@infn.it
+--!@author Matteo D'Antonio (matteo.dantonio@pg.infn.it)
 --!@todo #8 ASTRA last channel readout
 
 library ieee;
@@ -27,7 +28,7 @@ entity detectorReadout is
     -- control interface
     oCNT                : out tControlIntfOut;     --!Control signals in output
     iCNT                : in  tControlIntfIn;      --!Control signals in input
-    iEXT_INT_ADC        : in  std_logic;           --!External/Internal ADC select - 0=EXT, 1=INT
+    iADC_INT_EXT_b      : in  std_logic;           --!External/Internal ADC select --> 0=EXT, 1=INT
     -- parameters
     iFE_CLK_DIV         : in  std_logic_vector(15 downto 0);  --!FE SlowClock divider
     iFE_CLK_DUTY        : in  std_logic_vector(15 downto 0);  --!FE SlowClock duty cycle
@@ -45,10 +46,8 @@ entity detectorReadout is
     iMULTI_ADC          : in  tMultiAdc2FpgaIntf;  --!Signals from ext-ADCs to FPGA
     -- Internal ADCs interface
     oADC_INT_FAST_CLK   : out std_logic;            --!Input of ADC fast clock (25-100 MHz)
-    oADC_INT_RST_DIG    : out std_logic;            --!Reset of the ADC, counter and serializer
-    oADC_INT_ADC_CONV   : out std_logic;            --!Digital pulse to start the conversion of the ADC
-    oMULTI_ADC_INT      : out tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
-    iMULTI_ADC_INT      : out tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
+    oMULTI_ADC_INT      : out tFpga2AstraAdc;       --!Signals from the ADCs to the FPGA
+    iMULTI_ADC_INT      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     -- Collector FIFO interface
     oMULTI_FIFO   : out tMultiAdcFifoOut;    --!Collector FIFO, output interface
     iMULTI_FIFO   : in  tMultiAdcFifoIn      --!Collector FIFO, input  interface    
@@ -82,7 +81,7 @@ architecture std of detectorReadout is
   signal sAdcIntIRe         : std_logic_vector (cTOTAL_ADCS-1 downto 0);
   signal sAdcIntIWe         : std_logic_vector (cTOTAL_ADCS-1 downto 0);
   signal sAdcIntOMultiFifo  : tMultiAdcFifoOut;
-
+  
   -- Clock dividers
   signal sFeCdRis, sFeCdFal   : std_logic;
   signal sFeSlwEn             : std_logic;
@@ -175,18 +174,20 @@ begin
   end generate COLLECTOR_FIFO_GENERATE;
   ------------------------------------------------------------------------------
 
-  sFeRst <= '1' when (sHpState = RESET) else
-            '0';
+  sFeRst  <= '1' when (sHpState = RESET) else
+             '0';
   --!@brief Low-level front-end interface
   astraDriver_i : astraDriver
     port map (
-      iCLK      => iCLK,
-      iRST      => sFeRst,
-      oCNT      => sFeOCnt,
-      iCNT      => sFeICnt,
-      oDATA_VLD => sFeDataVld,
-      oFE       => sFe,
-      iFE       => iFE
+      iCLK            => iCLK,
+      iRST            => sFeRst,
+      oCNT            => sFeOCnt,
+      iCNT            => sFeICnt,
+      oDATA_VLD       => sFeDataVld,
+      iADC_INT_EXT_b  => iADC_INT_EXT_b,
+      iACQSTN_COMPL   => sAdcIntOFlag.compl,
+      oFE             => sFe,
+      iFE             => iFE
       );      
 
   sAdcRst <= '1' when (sHpState = RESET) else
@@ -214,20 +215,18 @@ begin
     iFAST_DC        => iADC_INT_CLK_DUTY,
     iCONV_TIME      => iADC_INT_CONV_TIME,
     oFAST_CLK       => oADC_INT_FAST_CLK,
-    oRST_DIG        => oADC_INT_RST_DIG,
-    oADC_CONV       => oADC_INT_ADC_CONV,
-    iMULTI_ADC      => oMULTI_ADC_INT,
-    oMULTI_ADC      => iMULTI_ADC_INT,
+    iMULTI_ADC      => iMULTI_ADC_INT,
+    oMULTI_ADC      => oMULTI_ADC_INT,
     iMULTI_FIFO_RE  => sAdcIntIRe,
     oMULTI_FIFO     => sAdcIntOMultiFifo
     );
 
   --!@brief Generate multiple FIFOs to sample the ADCs
   FIFO_GENERATE : for i in 0 to cTOTAL_ADCS-1 generate
-    sFifoIn(i).data <=  sAdcIntOMultiFifo(i).q when iEXT_INT_ADC = '1' else
+    sFifoIn(i).data <=  sAdcIntOMultiFifo(i).q when iADC_INT_EXT_b = '1' else
                         sAdcOFifo(i).data;
-    sFifoIn(i).wr   <=  sAdcIntIWe(i) when iEXT_INT_ADC = '1' else
-                        wsAdcOFifo(i).wr;
+    sFifoIn(i).wr   <=  sAdcIntIWe(i) when iADC_INT_EXT_b = '1' else
+                        sAdcOFifo(i).wr;
     sFifoIn(i).rd   <=  iMULTI_FIFO(i).rd;
 
     --!@brief FIFO buffer to collect data from the ADC
@@ -257,28 +256,35 @@ begin
   end generate FIFO_GENERATE;
 
 
-  --! @brief Output signals in a synchronous fashion, without reset
-  --! @param[in] iCLK Clock, used on rising edge
+  --!@brief Output signals in a synchronous fashion, without reset
+  --!@param[in] iCLK Clock, used on rising edge
+  --!@WARNING the last sample is acquired by ADC FIFO in the idle state
   HP_synch_signals_proc : process (iCLK)
   begin
     if (rising_edge(iCLK)) then
-      if (iEXT_INT_ADC = '1') then
+      if (iADC_INT_EXT_b = '1') then
         --!default values, to be overwritten when necessary
-        sFeICnt.en    <= '0';
-        sAdcICnt.en   <= '0';
-        sCntOut       <= sAdcIntOFlag;
+        sFeSlwRst       <= '1';
+        sAdcICnt.en     <= '0';        
+        sAdcSlwRst      <= '1';        
+        sCntOut         <= sAdcIntOFlag;
         
         if (sHpState = RESET or sHpState = WAIT_RESET) then
-          sAdcIntICnt.en  <= '0';
+          sFeICnt.en      <= '0';
+          sAdcIntICnt.en  <= '0';          
         else
-          sAdcIntICnt.en  <= '1';
+          sFeICnt.en      <= '1';
+          sAdcIntICnt.en  <= '1';          
         end if;
         
         if (sHpState = START_READOUT) then
+          sFeICnt.start     <= '1';
           sAdcIntICnt.start <= '1';
         else
           sAdcIntICnt.start <= '0';
+          sFeICnt.start     <= '0';
         end if;
+        
       else
         --!default values, to be overwritten when necessary
         sAdcIntICnt.en    <= '0';
@@ -389,12 +395,16 @@ begin
   --! @param[in] sFsmSynchEn Synch this FSM to the FSM of the FSM
   --! @return sNextHpState  Next state of the FSM
   FSM_HP_proc : process(sHpState, sCntIn, sFeOCnt, sAdcOCnt, sFsmSynchEn,
-                        sFeDataVld)
+                        sFeDataVld, iADC_INT_EXT_b, sAdcIntOFlag)
   begin
     case (sHpState) is
       --Reset the FSM
       when RESET =>
-        sNextHpState <= WAIT_RESET;
+        if (iADC_INT_EXT_b = '1') then
+          sNextHpState <= IDLE;
+        else
+          sNextHpState <= WAIT_RESET;
+        end if;
 
       --Wait until FE and ADC completed reset
       when WAIT_RESET =>
@@ -414,21 +424,33 @@ begin
 
       --Start reading the sensor by starting ASTRA
       when START_READOUT =>
-        if (sFsmSynchEn = '1') then
+        if (iADC_INT_EXT_b = '1') then
           sNextHpState <= ASTRA_CLK_EDGE;
         else
-          sNextHpState <= START_READOUT;
+          if (sFsmSynchEn = '1') then
+            sNextHpState <= ASTRA_CLK_EDGE;
+          else
+            sNextHpState <= START_READOUT;
+          end if;
         end if;
 
       --Go to the last state or continue reading synchronized to the FE clock
       when ASTRA_CLK_EDGE =>
-        if (sStickyCompl = "11") then
-          sNextHpState <= END_READOUT;
-        else
-          if (sFsmSynchEn = '1' and sFeDataVld = '1') then
-            sNextHpState <= START_EXTADC_RO;
+        if (iADC_INT_EXT_b = '1') then
+          if (sAdcIntOFlag.compl = '1') then
+            sNextHpState <= IDLE;
           else
             sNextHpState <= ASTRA_CLK_EDGE;
+          end if;
+        else
+          if (sStickyCompl = "11") then
+            sNextHpState <= END_READOUT;
+          else
+            if (sFsmSynchEn = '1' and sFeDataVld = '1') then
+              sNextHpState <= START_EXTADC_RO;
+            else
+              sNextHpState <= ASTRA_CLK_EDGE;
+            end if;
           end if;
         end if;
 
