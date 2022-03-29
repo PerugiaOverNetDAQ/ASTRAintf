@@ -149,6 +149,9 @@ package ASTRApackage is
     feClkDuty   : std_logic_vector(15 downto 0);  --!FE slowClock duty cycle
     adcClkDiv   : std_logic_vector(15 downto 0);  --!ADC slowClock divider
     adcClkDuty  : std_logic_vector(15 downto 0);  --!ADC slowClock duty cycle
+    adcIntClkDiv    : std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
+    adcIntClkDuty   : std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
+    adcIntConvTime  : std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
     trg2Hold    : std_logic_vector(15 downto 0);  --!Clock-cycles between an external trigger and the FE-HOLD signal
     extendBusy  : std_logic_vector(15 downto 0);  --!320-ns duration of busy extension time
     adcDelay    : std_logic_vector(15 downto 0);  --!Delay from FEclk to ADC start
