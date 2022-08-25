@@ -40,7 +40,7 @@ entity PRG_driver is
     iRST         				  : in  std_logic;        --!Reset principale
     -- Enable
     iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG_driver
-    iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" e Global" in ingresso
+    iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" in ingresso
     -- PRG_driver Clock Divider
     iPERIOD_CLK	          : in  std_logic_vector(31 downto 0);		--!Periodo dello SlowClock in numero di cicli del main clock
     iDUTY_CYCLE_CLK			  : in  std_logic_vector(31 downto 0);		--!Duty Cycle dello SlowClock in numero di cicli del main clock
