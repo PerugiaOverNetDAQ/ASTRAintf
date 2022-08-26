@@ -89,6 +89,7 @@ architecture std of detectorReadout is
   signal sAdcCdRis, sAdcCdFal : std_logic;
   signal sAdcSlwEn            : std_logic;
   signal sAdcSlwRst           : std_logic;
+  signal sSlowClock           : std_logic;
 
   -- FSM signals
   type tHpState is (RESET, WAIT_RESET, IDLE, START_READOUT, ASTRA_CLK_EDGE,
@@ -111,6 +112,7 @@ begin
   sFeOtherEdge  <= sFeCdRis when (pACTIVE_EDGE = "F") else
                    sFeCdFal;
   --!@brief Generate the SlowClock and SlowEnable for the FEs interface
+  sFeICnt.slwClk <= not sSlowClock;
   FE_div : clock_divider_2
     generic map(
       pPOLARITY => '0',
@@ -122,7 +124,7 @@ begin
       iEN              => sFeSlwEn,
       iFREQ_DIV        => iFE_CLK_DIV,
       iDUTY_CYCLE      => iFE_CLK_DUTY,
-      oCLK_OUT         => sFeICnt.slwClk,
+      oCLK_OUT         => sSlowClock,
       oCLK_OUT_RISING  => sFeCdRis,
       oCLK_OUT_FALLING => sFeCdFal
       );
@@ -395,7 +397,7 @@ begin
   --! @param[in] sFsmSynchEn Synch this FSM to the FSM of the FSM
   --! @return sNextHpState  Next state of the FSM
   FSM_HP_proc : process(sHpState, sCntIn, sFeOCnt, sAdcOCnt, sFsmSynchEn,
-                        sFeDataVld, iADC_INT_EXT_b, sAdcIntOFlag)
+                        sFeOtherEdge, sFeDataVld, iADC_INT_EXT_b, sAdcIntOFlag)
   begin
     case (sHpState) is
       --Reset the FSM
@@ -446,7 +448,7 @@ begin
           if (sStickyCompl = "11") then
             sNextHpState <= END_READOUT;
           else
-            if (sFsmSynchEn = '1' and sFeDataVld = '1') then
+            if (sFeOtherEdge = '1' and sFeDataVld = '1') then
               sNextHpState <= START_EXTADC_RO;
             else
               sNextHpState <= ASTRA_CLK_EDGE;

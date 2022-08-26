@@ -182,7 +182,7 @@ begin
           sCntOut.compl <= '0';
         end if;
 
-        if (sNextFeState = CLOCK_FORWARD or sNextFeState = SYNCH_END) then
+        if (sNextFeState = CLOCK_FORWARD or sNextFeState = SYNCH_END or sNextFeState = READ_RESET) then
           oDATA_VLD <= '1';
         else
           oDATA_VLD <= '0';
@@ -199,10 +199,9 @@ begin
   sDcCount.preset <= (others => '0');
   sS2cCount.preset<= (others => '0');
 
-  sChCountRst <= '1' when (sFeState = RESET or sFeState = IDLE
-                           or sFeState = READ_RESET) else
+  sChCountRst <= '1' when (sFeState = RESET or sFeState = IDLE) else
                  '0';
-  sChCount.en <= sCntIn.slwEn when (sFeState = CLOCK_FORWARD) else
+  sChCount.en <= sCntIn.slwEn when (sFeState = CLOCK_FORWARD or sFeState = READ_RESET) else
                  '0';
   --! @brief Multi-purpose counter to implement delays in the FSM
   CH_COUNTER : counter
