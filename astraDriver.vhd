@@ -182,7 +182,7 @@ begin
           sCntOut.compl <= '0';
         end if;
 
-        if (sNextFeState = CLOCK_FORWARD or sNextFeState = SYNCH_END or sNextFeState = READ_RESET) then
+        if (sNextFeState = CLOCK_FORWARD or sNextFeState = READ_RESET) then
           oDATA_VLD <= '1';
         else
           oDATA_VLD <= '0';
@@ -332,7 +332,7 @@ begin
       --Send the remaining clocks to ASTRA(s)
       when CLOCK_FORWARD =>
         if (sChCount.count <
-            int2slv(cFE_CHANNELS-1, sChCount.count'length)) then
+            int2slv(cFE_CHANNELS, sChCount.count'length)) then
           sNextFeState <= CLOCK_FORWARD;
         else
           sNextFeState <= SYNCH_END;
