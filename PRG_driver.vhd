@@ -38,6 +38,7 @@ entity PRG_driver is
   port(
     iCLK         				  : in  std_logic;        --!Clock principale
     iRST         				  : in  std_logic;        --!Reset principale
+    iPRG_ASTRA_RST        : in  std_logic;        --!PRG reset
     -- Enable
     iEN          				  : in  std_logic;        --!Abilitazione del modulo PRG_driver
     iWE		     				    : in  std_logic;        --!Configura il chip ASTRA con i valori "Local" in ingresso
@@ -93,6 +94,7 @@ begin
 		);
   --!sCLK_OUT on/off
   oLOCAL_SETTING.clk <= sClkOut and sClkOutEn;
+  oLOCAL_SETTING.rst <= iPRG_ASTRA_RST;
   
   --!Implementazione della macchina a stati
   StateFSM_proc : process (iCLK)
@@ -100,7 +102,6 @@ begin
     if (rising_edge(iCLK)) then
       if (iRST = '1') then
         --!Local Config Reset
-        oLOCAL_SETTING.rst	  <= '1';								                     -- Local Config Reset = '1'
         oLOCAL_SETTING.bitA   <= '0';                                    -- Bit stream "A" = '0'
         oLOCAL_SETTING.bitB   <= '0';                                    -- Bit stream "B" = '0'
         --!Other
@@ -111,7 +112,6 @@ begin
       elsif (iEN = '1') then
         --!Valori di default che verranno sovrascritti, se necessario
         sClkOutEn           <= '0';
-        oLOCAL_SETTING.rst	<= '0';
         oFLAG.reset	        <= '0';
         oFLAG.busy	        <= '0';
         case (sPS) is
@@ -119,8 +119,7 @@ begin
           --!Attendi per almeno 1 ciclo di Slow Clock con il PRG_RESET alto
           when RESET =>
             if (sResetCounter < iPERIOD_CLK - 1) then 
-              --!Local Config Reset
-              oLOCAL_SETTING.rst	 <= '1';								                      -- Local Config Reset = '1'
+              --!Local Config Reset								                      -- Local Config Reset = '1'
               oLOCAL_SETTING.bitA  <= '0';                                     -- Bit stream "A" = '0'
               oLOCAL_SETTING.bitB  <= '0';                                     -- Bit stream "B" = '0'
               --!Other

@@ -270,6 +270,7 @@ package ASTRApackage is
       iCLK            : in  std_logic;
       --# {{control|Control}}
       iRST            : in  std_logic;
+      iPRG_ASTRA_RST  : in std_logic;
       iEN             : in  std_logic;
       iWE             : in  std_logic;
       iPERIOD_CLK     : in  std_logic_vector(31 downto 0);
