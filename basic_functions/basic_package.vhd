@@ -156,6 +156,12 @@ end component;
       oPULSE, oPULSE_RISING, oPULSE_FALLING : out std_logic;
       iPERIOD : in  std_logic_vector(pWIDTH-1 downto 0));
   end component;
+  -- pulse_extender -----------------------------------------------------------
+  component pulse_extender is
+    generic(pWIDTH : natural; pLENGTH : natural; pPOL_IN : std_logic; pPOL_OUT :std_logic);
+    port(iCLK, iRST, iEN  : in  std_logic;
+      iPULSE : in std_logic; oPULSE : out std_logic);
+  end component;
   -- delay_timer ---------------------------------------------------------------
   component delay_timer is
     port(iCLK, iRST, iSTART  : in  std_logic;
