@@ -162,6 +162,8 @@ package ASTRApackage is
     chMask      : std_logic_vector(63 downto 0);  --!Channels mask
     chTpEn      : std_logic_vector(63 downto 0);  --!Test-pulse enable
     chDisc      : std_logic_vector(63 downto 0);  --!Discriminator enable
+    testMode    : std_logic;                      --!Enable interface test-mode: freeze one channel in output
+    testCh      : std_logic_vector(7 downto 0);  --!Channel to be frozen in output
   end record astraConfig;
 
   --!ASTRA Global setting interface
@@ -211,6 +213,8 @@ package ASTRApackage is
       iRST            : in  std_logic;
       oCNT            : out tControlIntfOut;
       iCNT            : in  tControlIntfIn;
+      iCNT_Test       : in  std_logic;
+      iCNT_TEST_CH    : in std_logic_vector(7 downto 0);
       oDATA_VLD       : out std_logic;
       iADC_INT_EXT_b  : in  std_logic;
       --# {{acqCompl|acqCompl}}
@@ -243,6 +247,8 @@ package ASTRApackage is
       iADC_INT_CLK_DIV    : in  std_logic_vector(15 downto 0);
       iADC_INT_CLK_DUTY   : in  std_logic_vector(15 downto 0);
       iADC_INT_CONV_TIME  : in  std_logic_vector(15 downto 0);
+      iCNT_Test           : in  std_logic;
+      iCNT_TEST_CH        : in std_logic_vector(7 downto 0);
       --# {{ASTRA interface}}
       oFE                 : out tFpga2FeIntf;
       iFE                 : in  tFe2FpgaIntf;

@@ -20,6 +20,8 @@ entity astraDriver is
     -- control interface
     oCNT            : out tControlIntfOut;    --!Control signals in output
     iCNT            : in  tControlIntfIn;     --!Control signals in input
+    iCNT_Test       : in  std_logic;          --!Flag to activate the test-mode
+    iCNT_TEST_CH    : in std_logic_vector(7 downto 0); --!Frozen channel in the analog out
     oDATA_VLD       : out std_logic;          --!Flags data available at ADC input
     iADC_INT_EXT_b  : in  std_logic;          --!External/Internal ADC select --> 0=EXT, 1=INT
     -- ADC_INT_driver interface
@@ -91,12 +93,20 @@ architecture std of astraDriver is
   end record tS2cCountInterface;
   signal sS2cCountRst : std_logic;
   signal sS2cCount    : tS2cCountInterface;
+
+  --Count channels for test mode
+  --sTestCh has 1 extra bit to handle the case of only 1 VA
+  --signal sTestCh    : std_logic_vector(ceil_log2(cFE_CLOCK_CYCLES) downto 0);
+  signal sTestCh    : std_logic_vector(cDC_COUNT_WIDTH+cCH_COUNT_WIDTH downto 0);
+  signal sTestSend  : std_logic;
 begin
   -- Combinatorial assignments -------------------------------------------------
   oCNT   <= sCntOut;
   sCntIn <= iCNT;
   oFE <= sFpga2Fe;
   sFe2Fpga <= iFE;
+
+  sTestCh <= '0' & sDcCount.count & sChCount.count;
   ------------------------------------------------------------------------------
 
   --! @brief Output signals in a synchronous fashion, without reset
@@ -107,54 +117,54 @@ begin
       if (iADC_INT_EXT_b = '1') then
         --!default values, to be overwritten when necessary
         oDATA_VLD         <= '0';
-        sFpga2Fe.readRst  <= '0';        
+        sFpga2Fe.readRst  <= '0';
         sFpga2Fe.shiftClk <= '0';
         sFpga2Fe.test     <= '0';
-        
+
         if (sNextFeState = RESET) then
           sCntOut.reset <= '1';
         else
           sCntOut.reset <= '0';
         end if;
-        
+
         if (sNextFeState /= IDLE) then
           sCntOut.busy <= '1';
         else
           sCntOut.busy <= '0';
         end if;
-        
+
         if (sFeState = HOLD) then
           sFpga2Fe.hold_b <= '0';
         else
           sFpga2Fe.hold_b <= '1';
-        end if;      
+        end if;
 
         if (sNextFeState = COMPLETE) then
           sCntOut.compl <= '1';
         else
           sCntOut.compl <= '0';
         end if;
-        
+
         --!@todo How do I check the "when others" statement?
-        sCntOut.error <= '0';        
-        
-      else   
-      
+        sCntOut.error <= '0';
+
+      else
+
         if (sFeState = HOLD or sFeState = READ_RESET
             or sFeState = CLOCK_FORWARD or sFeState = SYNCH_END) then
-          sFpga2Fe.hold_b <= '0';
+          sFpga2Fe.hold_b <= iCNT_Test; --Disable HOLD when test mode is enabled
         else
           sFpga2Fe.hold_b <= '1';
         end if;
 
         if (sFeState = READ_RESET or sFeState = CLOCK_FORWARD
-            or sFeState = SYNCH_END) then
+            or sFeState = SYNCH_END or sFeState = COMPLETE) then
           sFpga2Fe.readRst <= '1';
         else
           sFpga2Fe.readRst <= '0';
         end if;
 
-        if (sFeState = CLOCK_FORWARD or sFeState = SYNCH_END 
+        if (sFeState = CLOCK_FORWARD or sFeState = SYNCH_END
             or sFeState = HOLD or sFeState = READ_RESET) then
           sFpga2Fe.shiftClk <= sCntIn.slwClk;
         else
@@ -183,10 +193,17 @@ begin
         end if;
 
         if (sNextFeState = CLOCK_FORWARD or sNextFeState = READ_RESET) then
-          oDATA_VLD <= '1';
+          oDATA_VLD <= not iCNT_Test;
         else
           oDATA_VLD <= '0';
         end if;
+
+        if (sTestCh < iCNT_TEST_CH) then
+          sTestSend <= '1';
+        else
+          sTestSend <= not iCNT_Test;
+        end if;
+
       end if;
     end if;
   end process FE_synch_signals_proc;
@@ -294,7 +311,7 @@ begin
           else
             sNextFeState <= IDLE;
           end if;
-        else        
+        else
           if (sCntIn.en = '1' and sCntIn.start = '1') then
             sNextFeState <= SYNCH_START;
           else
@@ -332,8 +349,12 @@ begin
       --Send the remaining clocks to ASTRA(s)
       when CLOCK_FORWARD =>
         if (sChCount.count <
-            int2slv(cFE_CHANNELS, sChCount.count'length)) then
-          sNextFeState <= CLOCK_FORWARD;
+            int2slv(cFE_CLOCK_CYCLES, sChCount.count'length)) then
+          if (sTestSend = '1') then
+            sNextFeState <= CLOCK_FORWARD;
+          else
+            sNextFeState <= SYNCH_END;
+          end if;
         else
           sNextFeState <= SYNCH_END;
         end if;
@@ -350,7 +371,15 @@ begin
         end if;
 
       when COMPLETE =>
-        sNextFeState <= IDLE;
+        if (iCNT_Test = '1') then
+          if (sCntIn.en = '1') then
+            sNextFeState <= COMPLETE;
+          else
+            sNextFeState <= RESET;
+          end if;
+        else --iCNT_TEST = '0' or others
+          sNextFeState <= IDLE;
+        end if;
 
       --State not foreseen
       when others =>

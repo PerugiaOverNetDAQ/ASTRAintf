@@ -32,7 +32,7 @@ end ADC_EXT_sim;
 
 --!@copydoc ADC_EXT_sim.vhd
 architecture Behavior of ADC_EXT_sim is
-  
+
   --!Flag to indicate the state of work for ADC
   signal    sWorkFlag   : std_logic;
   --!Flag to indicate the state of quiet for ADC
@@ -60,7 +60,7 @@ begin
   assert not(sQuietFlag = '1' and falling_edge(iCS))
   report "Chip Select pull down too early"
   severity ERROR;
-  
+
   external_ADC_sim : process
 	begin
     --!Default values, to be overwritten when necessary
@@ -80,7 +80,7 @@ begin
     oSDATA <= (others => 'X');
     wait for t4 - t7;
     oSDATA <= (others => '0');
-    
+
     --!Twelve digital bit
     ADC_out : while (i < 11) loop
       wait until falling_edge(iSCLK);
@@ -90,7 +90,7 @@ begin
       oSDATA <= std_logic_vector(to_unsigned(12-i, oSDATA'length));
       i      <= i + 1;
     end loop ADC_out;
-    
+
     --!Two trailer zeros
     wait until falling_edge(iSCLK);
     wait for t7;
@@ -109,6 +109,6 @@ begin
     sQuietFlag  <= '1';
     wait for tq;
 	end process;
-  
-    
+
+
 end architecture;

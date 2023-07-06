@@ -38,6 +38,8 @@ entity detectorReadout is
     iADC_INT_CLK_DIV    : in  std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
     iADC_INT_CLK_DUTY   : in  std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
     iADC_INT_CONV_TIME  : in  std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
+    iCNT_Test           : in  std_logic;                      --!Flag to activate the test-mode
+    iCNT_TEST_CH        : in std_logic_vector(7 downto 0);    --!Frozen channel in the analog out
     -- ASTRA interface
     oFE                 : out tFpga2FeIntf;   --!Output signals to ASTRA
     iFE                 : in  tFe2FpgaIntf;   --!Input signals from ASTRA
@@ -50,7 +52,7 @@ entity detectorReadout is
     iMULTI_ADC_INT      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
     -- Collector FIFO interface
     oMULTI_FIFO   : out tMultiAdcFifoOut;    --!Collector FIFO, output interface
-    iMULTI_FIFO   : in  tMultiAdcFifoIn      --!Collector FIFO, input  interface    
+    iMULTI_FIFO   : in  tMultiAdcFifoIn      --!Collector FIFO, input  interface
     );
 end detectorReadout;
 
@@ -75,13 +77,13 @@ architecture std of detectorReadout is
   signal sAdcICnt     : tControlIntfIn;
   signal sAdcOFifo    : tMultiAdcFifoIn;
   signal sAdcIntStart : std_logic;
-  
+
   signal sAdcIntICnt        : tControlIntfIn;
   signal sAdcIntOFlag       : tControlIntfOut;
   signal sAdcIntIRe         : std_logic_vector (cTOTAL_ADCS-1 downto 0);
   signal sAdcIntIWe         : std_logic_vector (cTOTAL_ADCS-1 downto 0);
   signal sAdcIntOMultiFifo  : tMultiAdcFifoOut;
-  
+
   -- Clock dividers
   signal sFeCdRis, sFeCdFal   : std_logic;
   signal sFeSlwEn             : std_logic;
@@ -158,7 +160,7 @@ begin
     oBUSY  => open,
     oOUT   => sAdcICnt.start
   );
-  
+
   --!Generate multiple delay_timer to write the collector FIFO (when using internal ADC)
   COLLECTOR_FIFO_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
     --!Combinatorial assignments
@@ -185,12 +187,14 @@ begin
       iRST            => sFeRst,
       oCNT            => sFeOCnt,
       iCNT            => sFeICnt,
+      iCNT_Test       => iCNT_Test,
+      iCNT_TEST_CH    => iCNT_TEST_CH,
       oDATA_VLD       => sFeDataVld,
       iADC_INT_EXT_b  => iADC_INT_EXT_b,
       iACQSTN_COMPL   => sAdcIntOFlag.compl,
       oFE             => sFe,
       iFE             => iFE
-      );      
+      );
 
   sAdcRst <= '1' when (sHpState = RESET) else
              '0';
@@ -205,7 +209,7 @@ begin
       iMULTI_ADC  => iMULTI_ADC,
       oMULTI_FIFO => sAdcOFifo
       );
-  
+
   --!@brief Internal ASTRA ADCs interface
   ADCs_INT : ADC_INT_driver
   port map (
@@ -267,18 +271,18 @@ begin
       if (iADC_INT_EXT_b = '1') then
         --!default values, to be overwritten when necessary
         sFeSlwRst       <= '1';
-        sAdcICnt.en     <= '0';        
-        sAdcSlwRst      <= '1';        
+        sAdcICnt.en     <= '0';
+        sAdcSlwRst      <= '1';
         sCntOut         <= sAdcIntOFlag;
-        
+
         if (sHpState = RESET or sHpState = WAIT_RESET) then
           sFeICnt.en      <= '0';
-          sAdcIntICnt.en  <= '0';          
+          sAdcIntICnt.en  <= '0';
         else
           sFeICnt.en      <= '1';
-          sAdcIntICnt.en  <= '1';          
+          sAdcIntICnt.en  <= '1';
         end if;
-        
+
         if (sHpState = START_READOUT) then
           sFeICnt.start     <= '1';
           sAdcIntICnt.start <= '1';
@@ -286,26 +290,26 @@ begin
           sAdcIntICnt.start <= '0';
           sFeICnt.start     <= '0';
         end if;
-        
+
       else
         --!default values, to be overwritten when necessary
         sAdcIntICnt.en    <= '0';
-        sAdcIntICnt.start <= '0'; 
-        
+        sAdcIntICnt.start <= '0';
+
         if (sHpState = RESET or sHpState = WAIT_RESET) then
           sFeICnt.en  <= '0';
           sAdcICnt.en <= '0';
         else
           sFeICnt.en  <= '1';
           sAdcICnt.en <= '1';
-        end if;       
+        end if;
 
         if (sHpState = START_READOUT) then
           sFeICnt.start <= '1';
         else
           sFeICnt.start <= '0';
         end if;
-        
+
         if (sHpState = RESET or sHpState = IDLE) then
           sFeSlwRst <= '1';
         else
@@ -367,7 +371,7 @@ begin
 
         --!@todo How do I check the "when others" statement?
         sCntOut.error <= '0';
-      
+
       end if;
     end if;
   end process HP_synch_signals_proc;

@@ -70,8 +70,9 @@ architecture Behavior of ADC_INT_driver is
   signal sMultiSr : tMultiShiftRegIntf;
 
   --!Gray converter interface
-  signal sGrayConvData  : std_logic_vector(cADC_DATA_WIDTH-1 downto 0);
-  signal sGrayConvWr    : std_logic;
+  signal sGrayConv  : tMultiAdcFifoIn;
+  --signal sGrayConvData  : std_logic_vector(cADC_DATA_WIDTH-1 downto 0);
+  --signal sGrayConvWr    : std_logic;
 
   --!Internal MultiFIFO Interface
   signal sFifoIn  : tMultiAdcFifoIn;
@@ -320,7 +321,7 @@ begin
         iSHIFT    => sSerDataSynch(i),
         iDATA     => (others => '0'),
         oSER_DATA => open,
-        oPAR_DATA => sGrayConvData
+        oPAR_DATA => sGrayConv(i).data
         );
   end generate SR_GENERATE;
 
@@ -333,19 +334,19 @@ begin
       iD        => sSerSendRetSynch(i),
       oQ        => open,
       oEDGE_R   => open,
-      oEDGE_F   => sGrayConvWr
+      oEDGE_F   => sGrayConv(i).wr
     );
 
     grayConv_i : grayConv
     generic map (
-      pSIZE => 12
+      pSIZE => 16
       )
     port map (
       iCLK  => sClkRx,
       iRST  => iRST,
-      iWR   => sGrayConvWr,
+      iWR   => sGrayConv(i).wr,
       oWR   => sFifoIn(i).wr,
-      iGRAY => sGrayConvData,
+      iGRAY => sGrayConv(i).data,
       oBIN  => sFifoIn(i).data
       );
 
