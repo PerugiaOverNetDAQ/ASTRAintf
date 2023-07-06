@@ -45,7 +45,7 @@ package ASTRApackage is
 
   --!ASTRA front-End output signals (to the FPGA)
   type tFe2FpgaIntf is record
-    readRstRet  : std_logic;  
+    readRstRet  : std_logic;
     shiftClkRet : std_logic;
   end record tFe2FpgaIntf;
 
@@ -70,7 +70,7 @@ package ASTRApackage is
     SClk : std_logic;
     Cs   : std_logic; -- Active Low
   end record tFpga2AdcIntf;
-  
+
   --!ASTRA ADC input signals (from the FPGA)
   type tFpga2AstraAdc is record
     RstDig    : std_logic;     --!Reset of the ADC, counter and serializer
@@ -86,7 +86,7 @@ package ASTRApackage is
     clkRet : std_logic;
     csRet  : std_logic;
   end record tAdc2FpgaIntf;
-  
+
   --!ASTRA ADC output signals (to the FPGA)
   type tAstraAdc2Fpga is record
     SerData     : std_logic;      --!Input from serializer bit stream
@@ -109,7 +109,7 @@ package ASTRApackage is
     aFull  : std_logic;                                     --!Almost full
     full   : std_logic;                                     --!Full
   end record tFifoOut_ADC;
-  
+
   --!Shift register signals
   type tShiftRegInterface is record
     en     : std_logic;
@@ -124,10 +124,10 @@ package ASTRApackage is
   type tMultiAdc2FpgaIntf is array (0 to cTOTAL_ADCS-1) of tAdc2FpgaIntf;
   type tMultiAdcFifoIn is array (0 to cTOTAL_ADCS-1) of tFifoIn_ADC;
   type tMultiAdcFifoOut is array (0 to cTOTAL_ADCS-1) of tFifoOut_ADC;
-  
+
   --!MultiShift register signals
   type tMultiShiftRegIntf is array (0 to cTOTAL_ADCS-1) of tShiftRegInterface;
-  
+
   --!Multiple ASTRA ADCs output signals
   type tMultiAstraAdc2Fpga is array (0 to cTOTAL_ADCS-1) of tAstraAdc2Fpga;
 
@@ -145,7 +145,7 @@ package ASTRApackage is
 
   --!Configuration ports to the MSD subpart
   type astraConfig is record
-    feClkDiv    : std_logic_vector(15 downto 0);  --!FE slowClock divider  
+    feClkDiv    : std_logic_vector(15 downto 0);  --!FE slowClock divider
     feClkDuty   : std_logic_vector(15 downto 0);  --!FE slowClock duty cycle
     adcClkDiv   : std_logic_vector(15 downto 0);  --!ADC slowClock divider
     adcClkDuty  : std_logic_vector(15 downto 0);  --!ADC slowClock duty cycle
@@ -163,7 +163,7 @@ package ASTRApackage is
     chTpEn      : std_logic_vector(63 downto 0);  --!Test-pulse enable
     chDisc      : std_logic_vector(63 downto 0);  --!Discriminator enable
   end record astraConfig;
-  
+
   --!ASTRA Global setting interface
   type tAstraGlobalSetting is record
     serialTxDisable : std_logic;  --!Disable the serializer
@@ -175,7 +175,7 @@ package ASTRApackage is
     gain            : std_logic;  --!Preamplifier gain
     polarity        : std_logic;  --!Preamplifier polarity
   end record tAstraGlobalSetting;
-  
+
   --!ASTRA Local setting serial interface
   type tPrgIntf is record
     clk   : std_logic;  --!Slow clock (1-5 MHz)
@@ -284,7 +284,7 @@ package ASTRApackage is
       oLOCAL_SETTING  : out tPrgIntf
     );
   end component;
-  
+
   ----!@brief PLL to generate internal clock (Fast clock, FSM clock, Receiver clock) inside ADC_INT_driver
   component pll is
     port(
@@ -297,30 +297,48 @@ package ASTRApackage is
       locked   : out std_logic          -- locked.export
     );
   end component;
-  
+
   --!@brief Internal ASTRA ADCs interface
-component ADC_INT_driver is
-  port(
-    --!FSM Main Command
-    iCLK            : in  std_logic;        --!Clock
-    iRST            : in  std_logic;        --!Reset
-    iCTRL           : in  tControlIntfIn;   --!Control (enable, start, slow clock, slow enable)
-    oFLAG				    : out tControlIntfOut;  --!Flag (busy, error, resetting, completetion)
-    --!registerArray Interface
-    iFAST_FREQ_DIV  : in std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
-    iFAST_DC        : in std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
-    iCONV_TIME      : in std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
-    --!Fast Clock
-    oFAST_CLK       : out std_logic;     --!Input of ADC fast clock (25-100 MHz)
-    --!Serializer Command/Data
-    iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
-    oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs
-    --!Word in output
-    iMULTI_FIFO_RE  : in  std_logic_vector (cTOTAL_ADCS-1 downto 0);   --!Read request
-    oMULTI_FIFO     : out tMultiAdcFifoOut      --!Output data, empty and full FIFO
-    );
-end component;
- 
- 
+  component ADC_INT_driver is
+    port(
+      --!FSM Main Command
+      iCLK            : in  std_logic;        --!Clock
+      iRST            : in  std_logic;        --!Reset
+      iCTRL           : in  tControlIntfIn;   --!Control (enable, start, slow clock, slow enable)
+      oFLAG				    : out tControlIntfOut;  --!Flag (busy, error, resetting, completetion)
+      --!registerArray Interface
+      iFAST_FREQ_DIV  : in std_logic_vector(15 downto 0);  --!Fast clock duration (in number of iCLK cycles) to drive ADC counter and serializer
+      iFAST_DC        : in std_logic_vector(15 downto 0);  --!Duty cycle fast clock duration (in number of iCLK cycles)
+      iCONV_TIME      : in std_logic_vector(15 downto 0);  --!Conversion time (in number of iCLK cycles)
+      --!Fast Clock
+      oFAST_CLK       : out std_logic;     --!Input of ADC fast clock (25-100 MHz)
+      --!Serializer Command/Data
+      iMULTI_ADC      : in  tMultiAstraAdc2Fpga;  --!Signals from the ADCs to the FPGA
+      oMULTI_ADC      : out tFpga2AstraAdc;       --!Signals from the FPGA to the ADCs
+      --!Word in output
+      iMULTI_FIFO_RE  : in  std_logic_vector (cTOTAL_ADCS-1 downto 0);   --!Read request
+      oMULTI_FIFO     : out tMultiAdcFifoOut      --!Output data, empty and full FIFO
+      );
+  end component;
+
+  --!@copydoc grayConv.vhd
+  component grayConv is
+    generic (
+      pSIZE : natural
+      );
+    port (
+      --# {{control|Control}}
+      iCLK  : in  std_logic;
+      iRST  : in  std_logic;
+      --# {{Write Requests}}
+      iWR   : in  std_logic;
+      oWR   : out std_logic;
+      --# {{Data}}
+      iGRAY : in  std_logic_vector(pSIZE-1 DOWNTO 0);
+      oBIN  : out std_logic_vector(pSIZE-1 DOWNTO 0)
+      );
+  end component;
+
+
 
 end ASTRApackage;

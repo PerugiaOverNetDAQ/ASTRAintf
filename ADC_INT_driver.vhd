@@ -58,21 +58,25 @@ architecture Behavior of ADC_INT_driver is
   signal sFastClockR        : std_logic;    --!Output rising edge
   signal sFastClockF        : std_logic;    --!Output falling edge
   signal sClkRx				      : std_logic;	  --!Receiver clock
-  
+
   --!ASTRA output signal interface
   signal sSerDataSynch      : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Input data from serializer bit stream, synchronized
   signal sClkRetSynch       : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Return clock from ASTRA
   signal sClkRetSynchR      : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Rising edge of return clock from ASTRA
   signal sClkRetSynchF      : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Falling edge of return clock from ASTRA
   signal sSerSendRetSynch   : std_logic_vector(cTOTAL_ADCS-1 downto 0);   --!Return SER_SEND from ASTRA, synchronized
-  
+
   --!MultiShift register interface
   signal sMultiSr : tMultiShiftRegIntf;
-  
+
+  --!Gray converter interface
+  signal sGrayConvData  : std_logic_vector(cADC_DATA_WIDTH-1 downto 0);
+  signal sGrayConvWr    : std_logic;
+
   --!Internal MultiFIFO Interface
   signal sFifoIn  : tMultiAdcFifoIn;
-  
-  
+
+
 begin
   --- Clock Management -------------------------------------------------------------
   generate_fast_clock_0 : clock_divider_2
@@ -90,7 +94,7 @@ begin
 		iFREQ_DIV         => iFAST_FREQ_DIV,
 		iDUTY_CYCLE       => iFAST_DC
 		);
-    
+
   --!PLL with "auto-reset" ON (automatically self-resets the PLL on loss of lock)
 	generate_fast_clock_1 : pll
 	port map(
@@ -100,12 +104,12 @@ begin
     outclk_1 =>	open,     --!FSM clock (50 MHz)
     outclk_2 =>	open,     --!Receiver clock (100 MHz)
     outclk_3 =>	open,     --!(200 MHz)
-		locked   => open	
+		locked   => open
 		);
-    
+
   --- Transmitter Commands to ASTRA ------------------------------------------------
   ADC_FSM_proc : process (iCLK)
-  begin 
+  begin
     if (rising_edge(iCLK)) then
       if (iRST = '1') then
         sFreqDivRst     <= '1';
@@ -118,13 +122,13 @@ begin
         oMULTI_ADC.AdcConv    <= '0';
         oMULTI_ADC.SerShClk   <= '0';
         oMULTI_ADC.SerLoad    <= '0';
-        oMULTI_ADC.SerSend    <= '0';        
+        oMULTI_ADC.SerSend    <= '0';
       elsif (iCTRL.en = '1') then
         --!default values, to be overwritten when necessary
         sFreqDivRst     <= '0';
         oFLAG			      <= ('1', '0', '0', '0');	  --!busy FLAG = '1'
         case (sAdcState) is
-          
+
           --!Wait for new acquisition
           when IDLE =>
             if (iCTRL.start = '1') then
@@ -145,49 +149,49 @@ begin
                 sHoldCounter        <= sHoldCounter + 1;
                 oMULTI_ADC.RstDig   <= '1';
               else
-                oMULTI_ADC.RstDig <= '0'; 
+                oMULTI_ADC.RstDig <= '0';
                 if (sDelayCounter < 1) then
                   sDelayCounter   <= sDelayCounter + 1;
                 else
-                  sHoldCounter         <= x"0001";                   
+                  sHoldCounter         <= x"0001";
                   sDelayCounter        <= (others => '0');
                   sAdcState            <= ADC_CONV;
                   oMULTI_ADC.AdcConv   <= '1';
                 end if;
               end if;
-            end if;            
+            end if;
           --!Start of the ADC conversion
           when ADC_CONV =>
-            if (sHoldCounter < iCONV_TIME) then              
+            if (sHoldCounter < iCONV_TIME) then
               sHoldCounter        <= sHoldCounter + 1;
               sAdcState           <= ADC_CONV;
               oMULTI_ADC.AdcConv  <= '1';
-            else            
+            else
               oMULTI_ADC.AdcConv  <= '0';
               if (sFastClockR = '1') then
                 if (sDelayCounter < 1) then
                     sDelayCounter   <= sDelayCounter + 1;
                   else
-                    sHoldCounter    <= x"0001";               
+                    sHoldCounter    <= x"0001";
                     sDelayCounter   <= (others => '0');
                     sAdcState       <= SER_SHIFT;
                     oMULTI_ADC.SerShClk     <= '1';
                   end if;
               end if;
-            end if;          
+            end if;
           --!Propagates the channel pointer to enable the readout of the digitized information
           when SER_SHIFT =>
             if (sFastClockR = '1') then
               sAdcState       <= SER_SHIFT;
               if (sHoldCounter < 2) then
                 sHoldCounter    <= sHoldCounter + 1;
-                oMULTI_ADC.SerShClk     <= '1'; 
+                oMULTI_ADC.SerShClk     <= '1';
               else
-                oMULTI_ADC.SerShClk     <= '0'; 
+                oMULTI_ADC.SerShClk     <= '0';
                 if (sDelayCounter < 1) then
                   sDelayCounter   <= sDelayCounter + 1;
                 else
-                  sHoldCounter    <= x"0001";                   
+                  sHoldCounter    <= x"0001";
                   sDelayCounter   <= (others => '0');
                   sAdcState       <= SER_LOAD;
                   oMULTI_ADC.SerLoad       <= '1';
@@ -200,13 +204,13 @@ begin
               sAdcState     <= SER_LOAD;
               if (sHoldCounter < 2) then
                 sHoldCounter  <= sHoldCounter + 1;
-                oMULTI_ADC.SerLoad     <= '1'; 
+                oMULTI_ADC.SerLoad     <= '1';
               else
-                oMULTI_ADC.SerLoad     <= '0'; 
+                oMULTI_ADC.SerLoad     <= '0';
                 if (sDelayCounter < 1) then
                   sDelayCounter   <= sDelayCounter + 1;
                 else
-                  sHoldCounter    <= x"0001";                  
+                  sHoldCounter    <= x"0001";
                   sDelayCounter   <= (others => '0');
                   sAdcState       <= SER_SEND;
                   oMULTI_ADC.SerSend       <= '1';
@@ -214,14 +218,14 @@ begin
               end if;
             end if;
           --!Enable the serializer output
-          when SER_SEND =>            
+          when SER_SEND =>
             if (sFastClockR = '1') then
               sAdcState     <= SER_SEND;
               if (sHoldCounter < 8) then
                 sHoldCounter  <= sHoldCounter + 1;
-                oMULTI_ADC.SerSend     <= '1'; 
+                oMULTI_ADC.SerSend     <= '1';
               else
-                oMULTI_ADC.SerSend     <= '0'; 
+                oMULTI_ADC.SerSend     <= '0';
                 if (sDelayCounter < 1) then
                   sDelayCounter   <= sDelayCounter + 1;
                 else
@@ -230,7 +234,7 @@ begin
                     sDelayCounter   <= (others => '0');
                     sAdcCounter     <= sAdcCounter + 1;
                     sAdcState       <= SER_SHIFT;
-                    oMULTI_ADC.SerShClk     <= '1';           
+                    oMULTI_ADC.SerShClk     <= '1';
                   else
                     sFreqDivRst     <= '1';
                     sHoldCounter    <= (others => '0');
@@ -242,21 +246,21 @@ begin
                 end if;
               end if;
             end if;
-          
+
           when others =>
             oFLAG.error   <= '1';
-            sAdcState     <= IDLE;   
+            sAdcState     <= IDLE;
         end case;
-        
+
       end if;
     end if;
   end process;
-  
+
 
   --- Receiver Data From ASTRA -----------------------------------------------------
   --!Combinatorial assignments
   sClkRx <= iCLK;
-  
+
   --!I/O synchronization and buffering
   SYNCH_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
     --!Return Clock from TFH
@@ -295,7 +299,7 @@ begin
         oQ    => sSerDataSynch(i)
         );
   end generate SYNCH_GENERATE;
-  
+
   --!Generate multiple Shift-registers to sample the ADCs
   SR_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
     --!Combinatorial assignments
@@ -316,10 +320,10 @@ begin
         iSHIFT    => sSerDataSynch(i),
         iDATA     => (others => '0'),
         oSER_DATA => open,
-        oPAR_DATA => sFifoIn(i).data
+        oPAR_DATA => sGrayConvData
         );
   end generate SR_GENERATE;
-  
+
   --!Generate multiple FIFO to synchronize data with ASTRA main clock
   FIFO_GENERATE : for i in 0 to cTOTAL_ADCS - 1 generate
     WRITE_WORD : edge_detector
@@ -329,8 +333,21 @@ begin
       iD        => sSerSendRetSynch(i),
       oQ        => open,
       oEDGE_R   => open,
-      oEDGE_F   => sFifoIn(i).wr
-    ); 
+      oEDGE_F   => sGrayConvWr
+    );
+
+    grayConv_i : grayConv
+    generic map (
+      pSIZE => 12
+      )
+    port map (
+      iCLK  => sClkRx,
+      iRST  => iRST,
+      iWR   => sGrayConvWr,
+      oWR   => sFifoIn(i).wr,
+      iGRAY => sGrayConvData,
+      oBIN  => sFifoIn(i).data
+      );
 
     --!Full and aFull flags are not used, the FIFO is supposed to be empty
     ADC_FIFO : parametric_fifo_dp
@@ -358,8 +375,8 @@ begin
         oUSEDW_R  => open,
         iRD_REQ   => iMULTI_FIFO_RE(i),
         oQ        => oMULTI_FIFO(i).q
-        );        
+        );
   end generate FIFO_GENERATE;
-  
-  
+
+
 end Behavior;

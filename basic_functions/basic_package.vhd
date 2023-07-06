@@ -168,6 +168,22 @@ end component;
       oBUSY, oOUT : out std_logic;
       iDELAY : in  std_logic_vector(15 downto 0));
   end component;
+  -- binary2gray ---------------------------------------------------------------
+  component binary2gray is
+    generic (pSIZE : natural := 12);
+    port (iCLK, iRST, iWR   : in  std_logic;
+      oWR   : out std_logic;
+      iBIN  : in  std_logic_vector(pSIZE-1 DOWNTO 0);
+      oGRAY : out std_logic_vector(pSIZE-1 DOWNTO 0));
+  end component;
+  -- gray2binary ---------------------------------------------------------------
+  component gray2binary is
+    generic (pSIZE : natural := 12);
+    port (iCLK, iRST, iWR   : in  std_logic;
+      oWR   : out std_logic;
+      iGRAY : in  std_logic_vector(pSIZE-1 DOWNTO 0);
+      oBIN  : out std_logic_vector(pSIZE-1 DOWNTO 0));
+  end component;
 
   -- Types ---------------------------------------------------------------------
   --!Counter interface with load, preset, enable and carry;
