@@ -132,6 +132,7 @@ begin
 
           --!Wait for new acquisition
           when IDLE =>
+            oMULTI_ADC.AdcConv  <= '0';
             if (iCTRL.start = '1') then
               sHoldCounter        <= x"0001";
               sAdcState           <= ADC_RST;
@@ -163,12 +164,13 @@ begin
             end if;
           --!Start of the ADC conversion
           when ADC_CONV =>
+            oMULTI_ADC.AdcConv  <= '1';
             if (sHoldCounter < iCONV_TIME) then
               sHoldCounter        <= sHoldCounter + 1;
               sAdcState           <= ADC_CONV;
-              oMULTI_ADC.AdcConv  <= '1';
+              --oMULTI_ADC.AdcConv  <= '1';
             else
-              oMULTI_ADC.AdcConv  <= '0';
+              --oMULTI_ADC.AdcConv  <= '0';
               if (sFastClockR = '1') then
                 if (sDelayCounter < 1) then
                     sDelayCounter   <= sDelayCounter + 1;
@@ -182,6 +184,7 @@ begin
             end if;
           --!Propagates the channel pointer to enable the readout of the digitized information
           when SER_SHIFT =>
+            oMULTI_ADC.AdcConv  <= '1';
             if (sFastClockR = '1') then
               sAdcState       <= SER_SHIFT;
               if (sHoldCounter < 2) then
@@ -201,6 +204,7 @@ begin
             end if;
           --!Enable the serializer to load the data from the bus and serialize it
           when SER_LOAD =>
+            oMULTI_ADC.AdcConv  <= '1';
             if (sFastClockR = '1') then
               sAdcState     <= SER_LOAD;
               if (sHoldCounter < 2) then
@@ -220,6 +224,7 @@ begin
             end if;
           --!Enable the serializer output
           when SER_SEND =>
+            oMULTI_ADC.AdcConv  <= '1';
             if (sFastClockR = '1') then
               sAdcState     <= SER_SEND;
               if (sHoldCounter < 8) then
