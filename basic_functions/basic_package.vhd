@@ -164,9 +164,12 @@ end component;
   end component;
   -- delay_timer ---------------------------------------------------------------
   component delay_timer is
+    -- ASTRA update: match the generic timer; old component instances remain 16-bit.
+    generic(pWIDTH : natural := 16);
     port(iCLK, iRST, iSTART  : in  std_logic;
       oBUSY, oOUT : out std_logic;
-      iDELAY : in  std_logic_vector(15 downto 0));
+      -- ASTRA update: constrain the delay port with the same width as the entity.
+      iDELAY : in  std_logic_vector(pWIDTH-1 downto 0));
   end component;
   -- binary2gray ---------------------------------------------------------------
   component binary2gray is

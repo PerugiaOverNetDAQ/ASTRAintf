@@ -14,11 +14,14 @@ use work.basic_package.all;
 
 --!@brief Delay an input pulse of the specified clock cycles
 entity delay_timer is
+  generic(
+    pWIDTH : natural := 16
+  );
   port(
     iCLK    : in  std_logic; --!Main clock
     iRST    : in  std_logic; --!Reset
     iSTART  : in  std_logic; --!Start
-    iDELAY  : in  std_logic_vector(15 downto 0); --!Delay in iCLK cycles
+    iDELAY  : in  std_logic_vector(pWIDTH-1 downto 0); --!Delay in iCLK cycles
     oBUSY   : out std_logic; --!Busy
     oOUT    : out std_logic  --!Asserted after iDELAY clock cycles
   );
